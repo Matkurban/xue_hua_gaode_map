@@ -23,6 +23,24 @@ enum AmapCoreHandler {
     static func setApiKey(_ apiKey: String) {
         AMapServices.shared().apiKey = apiKey
     }
+
+    /// Reads `AMapApiKey` from the host app's `Info.plist` and applies it.
+    ///
+    /// Unlike Android (which auto-reads the manifest meta-data), the AMap iOS
+    /// SDK never reads the key from `Info.plist`. Doing it here mirrors the
+    /// documented setup and prevents a nil-key native crash on first use.
+    static func applyApiKeyFromBundleIfAvailable() {
+        guard let apiKey = Bundle.main.object(forInfoDictionaryKey: "AMapApiKey") as? String,
+              !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+        AMapServices.shared().apiKey = apiKey
+    }
+
+    static var isApiKeyConfigured: Bool {
+        guard let apiKey = AMapServices.shared().apiKey else { return false }
+        return !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
     
     static func setRegionLanguage(_ language: String) {
         switch language {

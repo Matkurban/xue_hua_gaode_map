@@ -125,7 +125,13 @@ cd ios && pod repo update && pod install
 <string>YOUR_AMAP_KEY</string>
 ```
 
-Or set it at runtime via `GaodeSdk.setApiKey('YOUR_AMAP_KEY')`.
+The plugin reads `AMapApiKey` from `Info.plist` automatically at startup and applies it
+to `AMapServices`. Alternatively, set it at runtime via
+`GaodeSdk.setApiKey('YOUR_AMAP_KEY')` (which takes precedence over the `Info.plist` value).
+
+> **Heads up:** if no key is configured (neither `Info.plist` nor `setApiKey`), location,
+> geofence, and search calls fail with an `API_KEY_NOT_CONFIGURED` error instead of crashing
+> the app.
 
 > **Simulator limitation:** the Gaode SDK does not support the Apple Silicon (arm64)
 > simulator. Test location-related features on a **physical device**.

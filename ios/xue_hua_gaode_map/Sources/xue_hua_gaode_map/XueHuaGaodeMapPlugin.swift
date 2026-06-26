@@ -5,6 +5,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     private let searchClientManager = SearchClientManager()
     
     public static func register(with registrar: FlutterPluginRegistrar) {
+        AmapCoreHandler.applyApiKeyFromBundleIfAvailable()
         let instance = XueHuaGaodeMapPlugin()
         let channel = FlutterMethodChannel(name: "xue_hua_gaode_map", binaryMessenger: registrar.messenger())
         registrar.addMethodCallDelegate(instance, channel: channel)
@@ -105,7 +106,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleSearchPoiKeyword(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result),
+        guard requirePrivacy(result: result), requireApiKey(result: result),
               let args = call.arguments as? [String: Any],
               let keyword = args["keyword"] as? String else {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "keyword required", details: nil))
@@ -122,7 +123,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleSearchPoiAround(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result),
+        guard requirePrivacy(result: result), requireApiKey(result: result),
               let args = call.arguments as? [String: Any],
               let latitude = args["latitude"] as? Double,
               let longitude = args["longitude"] as? Double else {
@@ -142,7 +143,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleSearchInputTips(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result),
+        guard requirePrivacy(result: result), requireApiKey(result: result),
               let args = call.arguments as? [String: Any],
               let keyword = args["keyword"] as? String else {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "keyword required", details: nil))
@@ -156,7 +157,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleSearchGeocode(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result),
+        guard requirePrivacy(result: result), requireApiKey(result: result),
               let args = call.arguments as? [String: Any],
               let address = args["address"] as? String else {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "address required", details: nil))
@@ -178,6 +179,18 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
             result(FlutterError(
                 code: "PRIVACY_NOT_CONFIGURED",
                 message: AmapPrivacyState.privacyError().localizedDescription,
+                details: nil
+            ))
+            return false
+        }
+        return true
+    }
+
+    private func requireApiKey(result: @escaping FlutterResult) -> Bool {
+        guard AmapCoreHandler.isApiKeyConfigured else {
+            result(FlutterError(
+                code: "API_KEY_NOT_CONFIGURED",
+                message: "Amap API key is not configured. Set AMapApiKey in Info.plist or call GaodeSdk.setApiKey(...).",
                 details: nil
             ))
             return false
@@ -241,7 +254,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleGeofenceSetActiveActions(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result),
+        guard requirePrivacy(result: result), requireApiKey(result: result),
               let clientId = clientId(from: call) else { return }
         let actions = (call.arguments as? [String: Any])?["actions"] as? [String] ?? ["enter"]
         let allowsBackground =
@@ -252,7 +265,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleGeofenceAddCircle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result),
+        guard requirePrivacy(result: result), requireApiKey(result: result),
               let clientId = clientId(from: call),
               let args = call.arguments as? [String: Any],
               let latitude = args["latitude"] as? Double,
@@ -268,7 +281,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleGeofenceAddPolygon(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result),
+        guard requirePrivacy(result: result), requireApiKey(result: result),
               let clientId = clientId(from: call),
               let args = call.arguments as? [String: Any],
               let points = args["points"] as? [[String: Any]],
@@ -286,7 +299,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleGeofenceAddPoiKeyword(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result),
+        guard requirePrivacy(result: result), requireApiKey(result: result),
               let clientId = clientId(from: call),
               let args = call.arguments as? [String: Any],
               let keyword = args["keyword"] as? String,
@@ -303,7 +316,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleGeofenceAddPoiAround(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result),
+        guard requirePrivacy(result: result), requireApiKey(result: result),
               let clientId = clientId(from: call),
               let args = call.arguments as? [String: Any],
               let keyword = args["keyword"] as? String,
@@ -329,7 +342,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleGeofenceAddDistrict(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result),
+        guard requirePrivacy(result: result), requireApiKey(result: result),
               let clientId = clientId(from: call),
               let args = call.arguments as? [String: Any],
               let keyword = args["keyword"] as? String,

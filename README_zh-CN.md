@@ -121,7 +121,11 @@ cd ios && pod repo update && pod install
 <string>YOUR_AMAP_KEY</string>
 ```
 
-也可运行时调用 `GaodeSdk.setApiKey('YOUR_AMAP_KEY')`。
+插件会在启动时自动从 `Info.plist` 读取 `AMapApiKey` 并设置到 `AMapServices`。也可运行时调用
+`GaodeSdk.setApiKey('YOUR_AMAP_KEY')`（运行时设置优先于 `Info.plist`）。
+
+> **注意：** 若未配置 Key（既未在 `Info.plist` 中配置，也未调用 `setApiKey`），定位、地理围栏、
+> 搜索等接口会返回 `API_KEY_NOT_CONFIGURED` 错误，而不会直接闪退。
 
 > **模拟器限制：** 高德 SDK 不支持 Apple Silicon（arm64）模拟器，请在**真机**上测试
 > 定位相关功能。

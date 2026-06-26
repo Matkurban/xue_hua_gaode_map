@@ -32,6 +32,7 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
             }
             return
         }
+        guard ensureApiKey(result: result) else { return }
         isContinuous = true
         ensureManager().startUpdatingLocation()
         result?(nil)
@@ -61,6 +62,7 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
     
     func getOnce(result: @escaping FlutterResult) {
         guard ensurePrivacy(result: result) else { return }
+        guard ensureApiKey(result: result) else { return }
         if isContinuous {
             DispatchQueue.main.async {
                 result(FlutterError(
@@ -106,6 +108,7 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
     
     func reverseGeocode(latitude: Double, longitude: Double, result: @escaping FlutterResult) {
         guard ensurePrivacy(result: result) else { return }
+        guard ensureApiKey(result: result) else { return }
         guard acquireOperationLock(for: result) else { return }
         
         if reGeoSearchHandler == nil {
@@ -214,6 +217,23 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
                     message: AmapPrivacyState.privacyError().localizedDescription,
                     details: nil
                 ))
+            }
+            return false
+        }
+        return true
+    }
+
+    @discardableResult
+    private func ensureApiKey(result: FlutterResult?) -> Bool {
+        guard AmapCoreHandler.isApiKeyConfigured else {
+            if let result = result {
+                DispatchQueue.main.async {
+                    result(FlutterError(
+                        code: "API_KEY_NOT_CONFIGURED",
+                        message: "Amap API key is not configured. Set AMapApiKey in Info.plist or call GaodeSdk.setApiKey(...).",
+                        details: nil
+                    ))
+                }
             }
             return false
         }

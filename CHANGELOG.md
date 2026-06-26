@@ -1,3 +1,8 @@
+## 1.0.1
+
+* iOS: fix a hard crash when calling location/geofence/search APIs without a configured API key. The plugin now reads `AMapApiKey` from `Info.plist` at startup (matching Android's manifest auto-read), and unconfigured keys surface as a catchable `API_KEY_NOT_CONFIGURED` error instead of crashing the app.
+* Docs: clarify iOS API key setup (Info.plist auto-read, `GaodeSdk.setApiKey` runtime override).
+
 ## 1.0.0
 
 * First stable release.
