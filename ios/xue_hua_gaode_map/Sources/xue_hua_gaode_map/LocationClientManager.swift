@@ -9,16 +9,16 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
     private var reGeoSearchHandler: ReGeoSearchHandler?
     private var isContinuous = false
     private let operationLock = NSLock()
-
+    
     init(clientId: String) {
         self.clientId = clientId
         super.init()
     }
-
+    
     func setEventSink(_ sink: FlutterEventSink?) {
         eventSink = sink
     }
-
+    
     func start(result: FlutterResult? = nil) {
         guard AmapPrivacyState.privacyAgreed else {
             if let result = result {
@@ -36,7 +36,7 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
         ensureManager().startUpdatingLocation()
         result?(nil)
     }
-
+    
     func setOptions(_ options: [String: Any], result: FlutterResult? = nil) {
         guard AmapPrivacyState.privacyAgreed else {
             if let result = result {
@@ -53,12 +53,12 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
         LocationOptionsMapper.apply(to: ensureManager(), options: options)
         result?(nil)
     }
-
+    
     func stop() {
         isContinuous = false
         manager?.stopUpdatingLocation()
     }
-
+    
     func getOnce(result: @escaping FlutterResult) {
         guard ensurePrivacy(result: result) else { return }
         if isContinuous {
@@ -72,7 +72,7 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
             return
         }
         guard acquireOperationLock(for: result) else { return }
-
+        
         // Single-shot uses ONLY the completion block (not the delegate), so the
         // result is delivered exactly once.
         let manager = ensureManager()
@@ -103,11 +103,11 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
             }
         }
     }
-
+    
     func reverseGeocode(latitude: Double, longitude: Double, result: @escaping FlutterResult) {
         guard ensurePrivacy(result: result) else { return }
         guard acquireOperationLock(for: result) else { return }
-
+        
         if reGeoSearchHandler == nil {
             reGeoSearchHandler = ReGeoSearchHandler()
         }
@@ -121,7 +121,7 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
             result: wrappedResult
         )
     }
-
+    
     func destroy() {
         reGeoSearchHandler?.cancel(with: cancelledError())
         reGeoSearchHandler = nil
@@ -132,7 +132,7 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
         manager = nil
         isContinuous = false
     }
-
+    
     func amapLocationManager(
         _ manager: AMapLocationManager!,
         didUpdate location: CLLocation!,
@@ -144,7 +144,7 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
             self?.eventSink?(map)
         }
     }
-
+    
     func amapLocationManager(_ manager: AMapLocationManager!, didFailWithError error: Error!) {
         // Single-shot failures are delivered through requestLocation's completion
         // block; this delegate only feeds the continuous update stream.
@@ -154,14 +154,14 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
             self?.eventSink?(map)
         }
     }
-
+    
     func amapLocationManager(
         _ manager: AMapLocationManager!,
         doRequireLocationAuth locationManager: CLLocationManager!
     ) {
         locationManager.requestWhenInUseAuthorization()
     }
-
+    
     func amapLocationManager(
         _ manager: AMapLocationManager!,
         doRequireTemporaryFullAccuracyAuth locationManager: CLLocationManager!,
@@ -177,9 +177,9 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
             completion?(nil)
         }
     }
-
+    
     private var operationInFlight = false
-
+    
     @discardableResult
     private func acquireOperationLock(for result: @escaping FlutterResult) -> Bool {
         operationLock.lock()
@@ -198,13 +198,13 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
         operationLock.unlock()
         return true
     }
-
+    
     private func releaseOperationLock() {
         operationLock.lock()
         operationInFlight = false
         operationLock.unlock()
     }
-
+    
     @discardableResult
     private func ensurePrivacy(result: @escaping FlutterResult) -> Bool {
         guard AmapPrivacyState.privacyAgreed else {
@@ -219,7 +219,7 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
         }
         return true
     }
-
+    
     private func cancelledError() -> NSError {
         NSError(
             domain: "GaodeLocation",
@@ -227,7 +227,7 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
             userInfo: [NSLocalizedDescriptionKey: "Operation cancelled"]
         )
     }
-
+    
     private func ensureManager() -> AMapLocationManager {
         if manager == nil {
             manager = AMapLocationManager()
@@ -244,7 +244,7 @@ final class LocationClientRegistry {
     static let shared = LocationClientRegistry()
     private var clients: [String: LocationClientManager] = [:]
     private let lock = NSLock()
-
+    
     func getOrCreate(clientId: String) -> LocationClientManager {
         lock.lock()
         defer { lock.unlock() }
@@ -255,26 +255,26 @@ final class LocationClientRegistry {
         clients[clientId] = client
         return client
     }
-
+    
     func get(clientId: String) -> LocationClientManager? {
         lock.lock()
         defer { lock.unlock() }
         return clients[clientId]
     }
-
+    
     func remove(clientId: String) {
         lock.lock()
         defer { lock.unlock() }
         clients.removeValue(forKey: clientId)
     }
-
+    
     func destroy(clientId: String) {
         lock.lock()
         let client = clients.removeValue(forKey: clientId)
         lock.unlock()
         client?.destroy()
     }
-
+    
     func destroyAll() {
         lock.lock()
         let allClients = Array(clients.values)

@@ -8,7 +8,7 @@ final class ReGeoSearchHandler: NSObject, AMapSearchDelegate {
     private var searchAPI: AMapSearchAPI?
     private var pendingResult: FlutterResult?
     private let lock = NSLock()
-
+    
     func reverseGeocode(latitude: Double, longitude: Double, result: @escaping FlutterResult) {
         lock.lock()
         if pendingResult != nil {
@@ -24,7 +24,7 @@ final class ReGeoSearchHandler: NSObject, AMapSearchDelegate {
         }
         pendingResult = result
         lock.unlock()
-
+        
         if searchAPI == nil {
             searchAPI = AMapSearchAPI()
             searchAPI?.delegate = self
@@ -37,7 +37,7 @@ final class ReGeoSearchHandler: NSObject, AMapSearchDelegate {
         request.requireExtension = true
         searchAPI?.aMapReGoecodeSearch(request)
     }
-
+    
     func onReGeocodeSearchDone(
         _ request: AMapReGeocodeSearchRequest!,
         response: AMapReGeocodeSearchResponse!
@@ -49,7 +49,7 @@ final class ReGeoSearchHandler: NSObject, AMapSearchDelegate {
         }
         pendingResult = nil
         lock.unlock()
-
+        
         guard let regeocode = response.regeocode,
               let location = request.location else {
             DispatchQueue.main.async {
@@ -68,7 +68,7 @@ final class ReGeoSearchHandler: NSObject, AMapSearchDelegate {
         )
         DispatchQueue.main.async { callback(map) }
     }
-
+    
     func aMapSearchRequest(_ request: Any!, didFailWithError error: Error!) {
         lock.lock()
         guard let callback = pendingResult else {
@@ -86,7 +86,7 @@ final class ReGeoSearchHandler: NSObject, AMapSearchDelegate {
             ))
         }
     }
-
+    
     func cancel(with error: Error? = nil) {
         lock.lock()
         let callback = pendingResult

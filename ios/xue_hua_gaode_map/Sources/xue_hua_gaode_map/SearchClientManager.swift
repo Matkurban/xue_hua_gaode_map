@@ -8,7 +8,7 @@ import Flutter
 final class SearchClientManager: NSObject {
     private var handlers = Set<SearchRequestHandler>()
     private let lock = NSLock()
-
+    
     func poiKeyword(
         keyword: String,
         city: String,
@@ -25,7 +25,7 @@ final class SearchClientManager: NSObject {
         request.offset = pageSize
         runHandler(result: result) { $0.aMapPOIKeywordsSearch(request) }
     }
-
+    
     func poiAround(
         latitude: Double,
         longitude: Double,
@@ -48,21 +48,21 @@ final class SearchClientManager: NSObject {
         request.offset = pageSize
         runHandler(result: result) { $0.aMapPOIAroundSearch(request) }
     }
-
+    
     func inputTips(keyword: String, city: String, result: @escaping FlutterResult) {
         let request = AMapInputTipsSearchRequest()
         request.keywords = keyword
         request.city = city
         runHandler(result: result) { $0.aMapInputTipsSearch(request) }
     }
-
+    
     func geocode(address: String, city: String, result: @escaping FlutterResult) {
         let request = AMapGeocodeSearchRequest()
         request.address = address
         request.city = city
         runHandler(result: result) { $0.aMapGeocodeSearch(request) }
     }
-
+    
     private func runHandler(
         result: @escaping FlutterResult,
         action: @escaping (AMapSearchAPI) -> Void
@@ -85,13 +85,13 @@ private final class SearchRequestHandler: NSObject, AMapSearchDelegate {
     private var searchAPI: AMapSearchAPI?
     private var result: FlutterResult?
     private let onFinished: (SearchRequestHandler) -> Void
-
+    
     init(result: @escaping FlutterResult, onFinished: @escaping (SearchRequestHandler) -> Void) {
         self.result = result
         self.onFinished = onFinished
         super.init()
     }
-
+    
     func start(_ action: (AMapSearchAPI) -> Void) {
         let api = AMapSearchAPI()
         api?.delegate = self
@@ -102,7 +102,7 @@ private final class SearchRequestHandler: NSObject, AMapSearchDelegate {
             finish(FlutterError(code: "SEARCH_ERROR", message: "Failed to create AMapSearchAPI", details: nil))
         }
     }
-
+    
     private func finish(_ value: Any?) {
         guard let callback = result else { return }
         result = nil
@@ -111,7 +111,7 @@ private final class SearchRequestHandler: NSObject, AMapSearchDelegate {
         DispatchQueue.main.async { callback(value) }
         onFinished(self)
     }
-
+    
     func aMapSearchRequest(_ request: Any!, didFailWithError error: Error!) {
         let nsError = error as NSError?
         finish(FlutterError(
@@ -120,7 +120,7 @@ private final class SearchRequestHandler: NSObject, AMapSearchDelegate {
             details: nsError?.code
         ))
     }
-
+    
     func onPOISearchDone(_ request: AMapPOISearchBaseRequest!, response: AMapPOISearchResponse!) {
         let pois = response?.pois ?? []
         let count = Int(response?.count ?? 0)
@@ -131,17 +131,17 @@ private final class SearchRequestHandler: NSObject, AMapSearchDelegate {
             "pageCount": (count + pageSize - 1) / pageSize,
         ])
     }
-
+    
     func onInputTipsSearchDone(_ request: AMapInputTipsSearchRequest!, response: AMapInputTipsSearchResponse!) {
         let tips = response?.tips ?? []
         finish(tips.map { Self.tipToMap($0) })
     }
-
+    
     func onGeocodeSearchDone(_ request: AMapGeocodeSearchRequest!, response: AMapGeocodeSearchResponse!) {
         let geocodes = response?.geocodes ?? []
         finish(["geocodes": geocodes.map { Self.geocodeToMap($0) }])
     }
-
+    
     private static func poiToMap(_ poi: AMapPOI) -> [String: Any?] {
         [
             "id": poi.uid,
@@ -158,7 +158,7 @@ private final class SearchRequestHandler: NSObject, AMapSearchDelegate {
             "adCode": poi.adcode,
         ]
     }
-
+    
     private static func tipToMap(_ tip: AMapTip) -> [String: Any?] {
         [
             "name": tip.name,
@@ -170,7 +170,7 @@ private final class SearchRequestHandler: NSObject, AMapSearchDelegate {
             "poiId": tip.uid,
         ]
     }
-
+    
     private static func geocodeToMap(_ geocode: AMapGeocode) -> [String: Any?] {
         [
             "formattedAddress": geocode.formattedAddress,

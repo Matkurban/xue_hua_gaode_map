@@ -3,33 +3,33 @@ import UIKit
 
 public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     private let searchClientManager = SearchClientManager()
-
+    
     public static func register(with registrar: FlutterPluginRegistrar) {
         let instance = XueHuaGaodeMapPlugin()
         let channel = FlutterMethodChannel(name: "xue_hua_gaode_map", binaryMessenger: registrar.messenger())
         registrar.addMethodCallDelegate(instance, channel: channel)
-
+        
         let locationEvents = FlutterEventChannel(
             name: "xue_hua_gaode_map/location",
             binaryMessenger: registrar.messenger()
         )
         locationEvents.setStreamHandler(LocationStreamHandler())
-
+        
         let geofenceEvents = FlutterEventChannel(
             name: "xue_hua_gaode_map/geofence",
             binaryMessenger: registrar.messenger()
         )
         geofenceEvents.setStreamHandler(GeofenceStreamHandler())
-
+        
         let mapFactory = GaodeMapViewFactory(messenger: registrar.messenger())
         registrar.register(mapFactory, withId: "xue_hua_gaode_map/map")
     }
-
+    
     public func detach(from registrar: FlutterPluginRegistrar) {
         LocationClientRegistry.shared.destroyAll()
         GeofenceClientRegistry.shared.destroyAll()
     }
-
+    
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
         case "updatePrivacyShow":
@@ -103,7 +103,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
             result(FlutterMethodNotImplemented)
         }
     }
-
+    
     private func handleSearchPoiKeyword(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard requirePrivacy(result: result),
               let args = call.arguments as? [String: Any],
@@ -120,7 +120,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
             result: result
         )
     }
-
+    
     private func handleSearchPoiAround(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard requirePrivacy(result: result),
               let args = call.arguments as? [String: Any],
@@ -140,7 +140,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
             result: result
         )
     }
-
+    
     private func handleSearchInputTips(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard requirePrivacy(result: result),
               let args = call.arguments as? [String: Any],
@@ -154,7 +154,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
             result: result
         )
     }
-
+    
     private func handleSearchGeocode(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard requirePrivacy(result: result),
               let args = call.arguments as? [String: Any],
@@ -168,11 +168,11 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
             result: result
         )
     }
-
+    
     private func clientId(from call: FlutterMethodCall) -> String? {
         (call.arguments as? [String: Any])?["clientId"] as? String
     }
-
+    
     private func requirePrivacy(result: @escaping FlutterResult) -> Bool {
         guard AmapPrivacyState.privacyAgreed else {
             result(FlutterError(
@@ -184,7 +184,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
         }
         return true
     }
-
+    
     private func handleLocationSetOptions(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard let clientId = clientId(from: call) else {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil))
@@ -193,7 +193,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
         let options = (call.arguments as? [String: Any])?["options"] as? [String: Any] ?? [:]
         LocationClientRegistry.shared.getOrCreate(clientId: clientId).setOptions(options, result: result)
     }
-
+    
     private func handleLocationStart(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard let clientId = clientId(from: call) else {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil))
@@ -201,7 +201,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
         }
         LocationClientRegistry.shared.getOrCreate(clientId: clientId).start(result: result)
     }
-
+    
     private func handleLocationStop(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard let clientId = clientId(from: call) else {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil))
@@ -210,7 +210,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
         LocationClientRegistry.shared.getOrCreate(clientId: clientId).stop()
         result(nil)
     }
-
+    
     private func handleLocationGetOnce(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard let clientId = clientId(from: call) else {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil))
@@ -218,7 +218,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
         }
         LocationClientRegistry.shared.getOrCreate(clientId: clientId).getOnce(result: result)
     }
-
+    
     private func handleLocationDestroy(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard let clientId = clientId(from: call) else {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil))
@@ -227,7 +227,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
         LocationClientRegistry.shared.destroy(clientId: clientId)
         result(nil)
     }
-
+    
     private func handleLocationReverseGeocode(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard let clientId = clientId(from: call),
               let args = call.arguments as? [String: Any],
@@ -239,18 +239,18 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
         LocationClientRegistry.shared.getOrCreate(clientId: clientId)
             .reverseGeocode(latitude: latitude, longitude: longitude, result: result)
     }
-
+    
     private func handleGeofenceSetActiveActions(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard requirePrivacy(result: result),
               let clientId = clientId(from: call) else { return }
         let actions = (call.arguments as? [String: Any])?["actions"] as? [String] ?? ["enter"]
         let allowsBackground =
-            (call.arguments as? [String: Any])?["allowsBackgroundLocationUpdates"] as? Bool ?? false
+        (call.arguments as? [String: Any])?["allowsBackgroundLocationUpdates"] as? Bool ?? false
         GeofenceClientRegistry.shared.getOrCreate(clientId: clientId)
             .setActiveActions(actions, allowsBackgroundUpdates: allowsBackground)
         result(nil)
     }
-
+    
     private func handleGeofenceAddCircle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard requirePrivacy(result: result),
               let clientId = clientId(from: call),
@@ -266,7 +266,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
             .addCircle(latitude: latitude, longitude: longitude, radius: radius, customId: customId)
         result(nil)
     }
-
+    
     private func handleGeofenceAddPolygon(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard requirePrivacy(result: result),
               let clientId = clientId(from: call),
@@ -284,7 +284,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
         }
         result(nil)
     }
-
+    
     private func handleGeofenceAddPoiKeyword(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard requirePrivacy(result: result),
               let clientId = clientId(from: call),
@@ -301,7 +301,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
             .addPoiKeyword(keyword: keyword, poiType: poiType, city: city, size: size, customId: customId)
         result(nil)
     }
-
+    
     private func handleGeofenceAddPoiAround(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard requirePrivacy(result: result),
               let clientId = clientId(from: call),
@@ -327,7 +327,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
         )
         result(nil)
     }
-
+    
     private func handleGeofenceAddDistrict(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard requirePrivacy(result: result),
               let clientId = clientId(from: call),
@@ -340,7 +340,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
         GeofenceClientRegistry.shared.getOrCreate(clientId: clientId).addDistrict(keyword: keyword, customId: customId)
         result(nil)
     }
-
+    
     private func handleGeofenceRemove(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard requirePrivacy(result: result),
               let clientId = clientId(from: call) else { return }
@@ -348,28 +348,28 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
         GeofenceClientRegistry.shared.getOrCreate(clientId: clientId).remove(customId: customId)
         result(nil)
     }
-
+    
     private func handleGeofenceRemoveAll(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard requirePrivacy(result: result),
               let clientId = clientId(from: call) else { return }
         GeofenceClientRegistry.shared.getOrCreate(clientId: clientId).removeAll()
         result(nil)
     }
-
+    
     private func handleGeofencePause(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard requirePrivacy(result: result),
               let clientId = clientId(from: call) else { return }
         GeofenceClientRegistry.shared.getOrCreate(clientId: clientId).pause()
         result(nil)
     }
-
+    
     private func handleGeofenceResume(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard requirePrivacy(result: result),
               let clientId = clientId(from: call) else { return }
         GeofenceClientRegistry.shared.getOrCreate(clientId: clientId).resume()
         result(nil)
     }
-
+    
     private func handleGeofenceDestroy(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard let clientId = clientId(from: call) else {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil))
@@ -386,7 +386,7 @@ private final class LocationStreamHandler: NSObject, FlutterStreamHandler {
         LocationClientRegistry.shared.getOrCreate(clientId: clientId).setEventSink(events)
         return nil
     }
-
+    
     func onCancel(withArguments arguments: Any?) -> FlutterError? {
         guard let clientId = arguments as? String else { return nil }
         LocationClientRegistry.shared.get(clientId: clientId)?.setEventSink(nil)
@@ -400,7 +400,7 @@ private final class GeofenceStreamHandler: NSObject, FlutterStreamHandler {
         GeofenceClientRegistry.shared.getOrCreate(clientId: clientId).setEventSink(events)
         return nil
     }
-
+    
     func onCancel(withArguments arguments: Any?) -> FlutterError? {
         guard let clientId = arguments as? String else { return nil }
         GeofenceClientRegistry.shared.get(clientId: clientId)?.setEventSink(nil)

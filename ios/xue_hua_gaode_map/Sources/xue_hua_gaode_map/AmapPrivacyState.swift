@@ -2,11 +2,11 @@ import Foundation
 
 enum AmapPrivacyState {
     private(set) static var privacyAgreed = false
-
+    
     static func setPrivacyAgreed(_ agreed: Bool) {
         privacyAgreed = agreed
     }
-
+    
     static func privacyError() -> NSError {
         NSError(
             domain: "GaodePrivacy",
@@ -14,7 +14,7 @@ enum AmapPrivacyState {
             userInfo: [
                 NSLocalizedDescriptionKey:
                     "Gaode privacy compliance must be configured before using location or geofence APIs. " +
-                    "Call GaodeSdk.updatePrivacyShow and GaodeSdk.updatePrivacyAgree first.",
+                "Call GaodeSdk.updatePrivacyShow and GaodeSdk.updatePrivacyAgree first.",
             ]
         )
     }

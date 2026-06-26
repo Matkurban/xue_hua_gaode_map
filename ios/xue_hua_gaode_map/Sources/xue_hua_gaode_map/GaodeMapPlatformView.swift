@@ -7,7 +7,7 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView {
     private let mapView: MAMapView
     private let channel: FlutterMethodChannel
     private var annotations: [String: MAPointAnnotation] = [:]
-
+    
     init(frame: CGRect, viewId: Int64, args: [String: Any], messenger: FlutterBinaryMessenger) {
         mapView = MAMapView(frame: frame)
         channel = FlutterMethodChannel(
@@ -20,18 +20,18 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView {
             self?.handle(call, result: result)
         }
     }
-
+    
     deinit {
         channel.setMethodCallHandler(nil)
         mapView.removeAnnotations(Array(annotations.values))
         annotations.removeAll()
         mapView.delegate = nil
     }
-
+    
     func view() -> UIView {
         mapView
     }
-
+    
     private func applyInitialOptions(_ args: [String: Any]) {
         mapView.mapType = mapType(from: args["mapType"] as? String)
         mapView.isZoomEnabled = args["zoomGesturesEnabled"] as? Bool ?? true
@@ -45,7 +45,7 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView {
             applyCamera(camera, animated: false)
         }
     }
-
+    
     private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         let args = call.arguments as? [String: Any] ?? [:]
         switch call.method {
@@ -74,7 +74,7 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView {
             result(FlutterMethodNotImplemented)
         }
     }
-
+    
     private func applyCamera(_ map: [String: Any], animated: Bool) {
         guard let target = map["target"] as? [String: Any],
               let lat = target["latitude"] as? Double,
@@ -87,7 +87,7 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView {
             mapView.setZoomLevel(CGFloat(zoom), animated: animated)
         }
     }
-
+    
     private func addMarker(_ args: [String: Any]) {
         guard let id = args["id"] as? String,
               let position = args["position"] as? [String: Any],
@@ -105,7 +105,7 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView {
         annotations[id] = annotation
         mapView.addAnnotation(annotation)
     }
-
+    
     private func mapType(from value: String?) -> MAMapType {
         switch value {
         case "satellite":

@@ -21,7 +21,7 @@ enum LocationResultMapper {
                 "errorInfo": "Location is nil",
             ]
         }
-
+        
         var map: [String: Any?] = [
             "latitude": location.coordinate.latitude,
             "longitude": location.coordinate.longitude,
@@ -34,7 +34,7 @@ enum LocationResultMapper {
             "errorCode": 0,
             "errorInfo": "",
         ]
-
+        
         if let reGeocode = reGeocode {
             map["address"] = reGeocode.formattedAddress
             map["country"] = reGeocode.country
@@ -48,10 +48,10 @@ enum LocationResultMapper {
             map["poiName"] = reGeocode.poiName
             map["aoiName"] = reGeocode.aoiName
         }
-
+        
         return map
     }
-
+    
     static func toMap(
         latitude: Double,
         longitude: Double,
@@ -95,7 +95,7 @@ enum LocationOptionsMapper {
                 manager.desiredAccuracy = kCLLocationAccuracyBest
             }
         }
-
+        
         if let desiredAccuracy = options["desiredAccuracy"] as? String {
             switch desiredAccuracy {
             case "bestForNavigation":
@@ -110,36 +110,36 @@ enum LocationOptionsMapper {
                 manager.desiredAccuracy = kCLLocationAccuracyBest
             }
         }
-
+        
         if let distanceFilter = options["distanceFilter"] as? Double, distanceFilter >= 0 {
             manager.distanceFilter = distanceFilter
         }
-
+        
         if let pauses = options["pausesLocationUpdatesAutomatically"] as? Bool {
             manager.pausesLocationUpdatesAutomatically = pauses
         }
-
+        
         if let allowsBackground = options["allowsBackgroundUpdates"] as? Bool {
             manager.allowsBackgroundLocationUpdates = allowsBackground
         }
-
+        
         if let needAddress = options["needAddress"] as? Bool {
             manager.locatingWithReGeocode = needAddress
         }
-
+        
         // Note: `interval` (continuous-update frequency, ms) has no direct
         // equivalent on AMapLocationManager — iOS delivers continuous updates
         // driven by `distanceFilter` and the system, not a fixed timer. It is
         // intentionally not mapped to `locationTimeout` (a single-fix timeout).
-
+        
         if let httpTimeout = options["httpTimeout"] as? Int {
             manager.reGeocodeTimeout = max(5, httpTimeout / 1000)
         }
-
+        
         if let language = options["geoLanguage"] as? String {
             AmapCoreHandler.setRegionLanguage(language)
         }
-
+        
         if let protocolValue = options["protocol"] as? String {
             AMapServices.shared().enableHTTPS = (protocolValue == "https")
         }

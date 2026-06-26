@@ -11,7 +11,7 @@ PODS:
     - Flutter
   - permission_handler_apple (9.4.8):
     - Flutter
-  - xue_hua_gaode_map (0.1.1):
+  - xue_hua_gaode_map (1.0.0):
     - AMap3DMap
     - AMapLocation
     - AMapSearch
@@ -48,7 +48,7 @@ SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
   permission_handler_apple: 92d754bbaa7361d436db2d6c3c1c2a0fdcec462e
-  xue_hua_gaode_map: bd61cd236ada7609f1fff13bfdf0053255b4a5af
+  xue_hua_gaode_map: a08cadce3bf55a9bb686d8c35a55c3838a275e99
 
 PODFILE CHECKSUM: 663b3fecfed6d6b6867ee328b16178d423dcb96b
 

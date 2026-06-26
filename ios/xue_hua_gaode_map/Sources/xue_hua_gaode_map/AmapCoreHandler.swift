@@ -11,7 +11,7 @@ enum AmapCoreHandler {
         AMapSearchAPI.updatePrivacyShow(showStatus, privacyInfo: containStatus)
         MAMapView.updatePrivacyShow(showStatus, privacyInfo: containStatus)
     }
-
+    
     static func updatePrivacyAgree(hasAgree: Bool) {
         let agreeStatus: AMapPrivacyAgreeStatus = hasAgree ? .didAgree : .notAgree
         AMapLocationManager.updatePrivacyAgree(agreeStatus)
@@ -19,11 +19,11 @@ enum AmapCoreHandler {
         MAMapView.updatePrivacyAgree(agreeStatus)
         AmapPrivacyState.setPrivacyAgreed(hasAgree)
     }
-
+    
     static func setApiKey(_ apiKey: String) {
         AMapServices.shared().apiKey = apiKey
     }
-
+    
     static func setRegionLanguage(_ language: String) {
         switch language {
         case "english":

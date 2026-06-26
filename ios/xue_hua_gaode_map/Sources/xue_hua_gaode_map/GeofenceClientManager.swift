@@ -7,16 +7,16 @@ final class GeofenceClientManager: NSObject, AMapGeoFenceManagerDelegate {
     private var manager: AMapGeoFenceManager?
     private var eventSink: FlutterEventSink?
     private var allowsBackgroundLocationUpdates = false
-
+    
     init(clientId: String) {
         self.clientId = clientId
         super.init()
     }
-
+    
     func setEventSink(_ sink: FlutterEventSink?) {
         eventSink = sink
     }
-
+    
     func setActiveActions(_ actions: [String], allowsBackgroundUpdates: Bool = false) {
         guard ensurePrivacy() else { return }
         allowsBackgroundLocationUpdates = allowsBackgroundUpdates
@@ -36,7 +36,7 @@ final class GeofenceClientManager: NSObject, AMapGeoFenceManagerDelegate {
         }
         ensureManager().activeAction = activeAction
     }
-
+    
     func addCircle(latitude: Double, longitude: Double, radius: Double, customId: String) {
         guard ensurePrivacy() else { return }
         let center = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
@@ -46,7 +46,7 @@ final class GeofenceClientManager: NSObject, AMapGeoFenceManagerDelegate {
             customID: customId
         )
     }
-
+    
     func addPolygon(points: [[String: Any]], customId: String) -> String? {
         guard ensurePrivacy() else { return nil }
         if let validationError = Self.validatePolygonPoints(points) {
@@ -66,7 +66,7 @@ final class GeofenceClientManager: NSObject, AMapGeoFenceManagerDelegate {
         )
         return nil
     }
-
+    
     private static func validatePolygonPoints(_ points: [[String: Any]]) -> String? {
         guard points.count >= 3 else {
             return "Polygon requires at least 3 points"
@@ -81,7 +81,7 @@ final class GeofenceClientManager: NSObject, AMapGeoFenceManagerDelegate {
         }
         return nil
     }
-
+    
     func addPoiKeyword(keyword: String, poiType: String, city: String, size: Int, customId: String) {
         guard ensurePrivacy() else { return }
         ensureManager().addKeywordPOIRegionForMonitoring(
@@ -92,7 +92,7 @@ final class GeofenceClientManager: NSObject, AMapGeoFenceManagerDelegate {
             customID: customId
         )
     }
-
+    
     func addPoiAround(
         keyword: String,
         poiType: String,
@@ -113,7 +113,7 @@ final class GeofenceClientManager: NSObject, AMapGeoFenceManagerDelegate {
             customID: customId
         )
     }
-
+    
     func addDistrict(keyword: String, customId: String) {
         guard ensurePrivacy() else { return }
         ensureManager().addDistrictRegionForMonitoring(
@@ -121,7 +121,7 @@ final class GeofenceClientManager: NSObject, AMapGeoFenceManagerDelegate {
             customID: customId
         )
     }
-
+    
     func remove(customId: String?) {
         guard ensurePrivacy() else { return }
         if let customId = customId {
@@ -130,12 +130,12 @@ final class GeofenceClientManager: NSObject, AMapGeoFenceManagerDelegate {
             ensureManager().removeAllGeoFenceRegions()
         }
     }
-
+    
     func removeAll() {
         guard ensurePrivacy() else { return }
         ensureManager().removeAllGeoFenceRegions()
     }
-
+    
     func pause() {
         guard ensurePrivacy() else { return }
         guard let regions = manager?.geoFenceRegions(withCustomID: nil) as? [AMapGeoFenceRegion] else {
@@ -146,7 +146,7 @@ final class GeofenceClientManager: NSObject, AMapGeoFenceManagerDelegate {
             _ = manager?.pauseGeoFenceRegions(withCustomID: customId)
         }
     }
-
+    
     func resume() {
         guard ensurePrivacy() else { return }
         guard let regions = manager?.geoFenceRegions(withCustomID: nil) as? [AMapGeoFenceRegion] else {
@@ -157,14 +157,14 @@ final class GeofenceClientManager: NSObject, AMapGeoFenceManagerDelegate {
             _ = manager?.startGeoFenceRegions(withCustomID: customId)
         }
     }
-
+    
     func destroy() {
         eventSink = nil
         manager?.removeAllGeoFenceRegions()
         manager?.delegate = nil
         manager = nil
     }
-
+    
     func amapGeoFenceManager(
         _ manager: AMapGeoFenceManager!,
         didAddRegionForMonitoringFinished regions: [AMapGeoFenceRegion]!,
@@ -182,7 +182,7 @@ final class GeofenceClientManager: NSObject, AMapGeoFenceManagerDelegate {
             self?.eventSink?(event)
         }
     }
-
+    
     func amapGeoFenceManager(
         _ manager: AMapGeoFenceManager!,
         didGeoFencesStatusChangedFor region: AMapGeoFenceRegion!,
@@ -211,7 +211,7 @@ final class GeofenceClientManager: NSObject, AMapGeoFenceManagerDelegate {
             self?.eventSink?(event)
         }
     }
-
+    
     func amapGeoFenceManager(
         _ manager: AMapGeoFenceManager!,
         doRequireLocationAuth locationManager: CLLocationManager!
@@ -222,7 +222,7 @@ final class GeofenceClientManager: NSObject, AMapGeoFenceManagerDelegate {
             locationManager.requestWhenInUseAuthorization()
         }
     }
-
+    
     func amapLocationManager(
         _ manager: AMapGeoFenceManager!,
         doRequireTemporaryFullAccuracyAuth locationManager: CLLocationManager!,
@@ -238,12 +238,12 @@ final class GeofenceClientManager: NSObject, AMapGeoFenceManagerDelegate {
             completion?(nil)
         }
     }
-
+    
     @discardableResult
     private func ensurePrivacy() -> Bool {
         AmapPrivacyState.privacyAgreed
     }
-
+    
     private func ensureManager() -> AMapGeoFenceManager {
         if manager == nil {
             manager = AMapGeoFenceManager()
@@ -258,7 +258,7 @@ final class GeofenceClientRegistry {
     static let shared = GeofenceClientRegistry()
     private var clients: [String: GeofenceClientManager] = [:]
     private let lock = NSLock()
-
+    
     func getOrCreate(clientId: String) -> GeofenceClientManager {
         lock.lock()
         defer { lock.unlock() }
@@ -269,26 +269,26 @@ final class GeofenceClientRegistry {
         clients[clientId] = client
         return client
     }
-
+    
     func remove(clientId: String) {
         lock.lock()
         defer { lock.unlock() }
         clients.removeValue(forKey: clientId)
     }
-
+    
     func get(clientId: String) -> GeofenceClientManager? {
         lock.lock()
         defer { lock.unlock() }
         return clients[clientId]
     }
-
+    
     func destroy(clientId: String) {
         lock.lock()
         let client = clients.removeValue(forKey: clientId)
         lock.unlock()
         client?.destroy()
     }
-
+    
     func destroyAll() {
         lock.lock()
         let allClients = Array(clients.values)
