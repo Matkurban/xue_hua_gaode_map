@@ -1,0 +1,37 @@
+name: xue_hua_gaode_map
+description: "Flutter plugin for the Amap (Gaode) SDK: location, geofencing, map and search, with a consistent Dart API on Android and iOS."
+version: 1.0.0
+homepage: https://github.com/kurban/xue_hua_gaode_map
+repository: https://github.com/kurban/xue_hua_gaode_map
+issue_tracker: https://github.com/kurban/xue_hua_gaode_map/issues
+topics:
+  - amap
+  - gaode
+  - location
+  - geofence
+  - map
+
+environment:
+  sdk: ^3.12.2
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+
+flutter:
+  config:
+    enable-swift-package-manager: false
+  plugin:
+    platforms:
+      android:
+        package: com.kurban.xue_hua_gaode_map
+        pluginClass: XueHuaGaodeMapPlugin
+      ios:
+        pluginClass: XueHuaGaodeMapPlugin

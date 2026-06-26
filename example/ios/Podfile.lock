@@ -1,0 +1,55 @@
+PODS:
+  - AMap3DMap (11.2.000):
+    - AMapFoundation (>= 1.9.0)
+  - AMapFoundation (1.9.0)
+  - AMapLocation (2.12.0):
+    - AMapFoundation (>= 1.9.0)
+  - AMapSearch (9.8.0):
+    - AMapFoundation (>= 1.9.0)
+  - Flutter (1.0.0)
+  - integration_test (0.0.1):
+    - Flutter
+  - permission_handler_apple (9.4.8):
+    - Flutter
+  - xue_hua_gaode_map (0.1.1):
+    - AMap3DMap
+    - AMapLocation
+    - AMapSearch
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - integration_test (from `.symlinks/plugins/integration_test/ios`)
+  - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
+  - xue_hua_gaode_map (from `.symlinks/plugins/xue_hua_gaode_map/ios`)
+
+SPEC REPOS:
+  trunk:
+    - AMap3DMap
+    - AMapFoundation
+    - AMapLocation
+    - AMapSearch
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  integration_test:
+    :path: ".symlinks/plugins/integration_test/ios"
+  permission_handler_apple:
+    :path: ".symlinks/plugins/permission_handler_apple/ios"
+  xue_hua_gaode_map:
+    :path: ".symlinks/plugins/xue_hua_gaode_map/ios"
+
+SPEC CHECKSUMS:
+  AMap3DMap: 940c6f6ce6ff3089c5c2211b0dfb51ef43262fe8
+  AMapFoundation: 5f01fcabd1e591967e52178d2d96dac843396285
+  AMapLocation: 51549dc73f5bfa8806c33857ad2079fa6215bb49
+  AMapSearch: ec339fc3cf772d5ff657f02397888391b4b1bde8
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
+  permission_handler_apple: 92d754bbaa7361d436db2d6c3c1c2a0fdcec462e
+  xue_hua_gaode_map: bd61cd236ada7609f1fff13bfdf0053255b4a5af
+
+PODFILE CHECKSUM: 663b3fecfed6d6b6867ee328b16178d423dcb96b
+
+COCOAPODS: 1.16.2
