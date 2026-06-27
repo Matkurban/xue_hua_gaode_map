@@ -1,6 +1,7 @@
 import Flutter
 import MAMapKit
 import UIKit
+import CoreLocation
 
 private final class GaodePointAnnotation: MAPointAnnotation {
     var markerId: String = ""
@@ -47,6 +48,8 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
     private var multiPointIcons: [String: UIImage] = [:]
     private var groundOverlayAlphas: [String: CGFloat] = [:]
     private var markerIcons: [String: Data] = [:]
+    private var myLocationIconConfig: [String: Any]?
+    private var myLocationStyleConfig: [String: Any]?
     private var cameraMoving = false
     private var pendingLogoPosition: String?
     
@@ -138,14 +141,30 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
             if let maxZoom = args["maxZoom"] as? Double { mapView.maxZoomLevel = CGFloat(maxZoom) }
             result(nil)
         case "map#setMyLocationEnabled":
-            mapView.showsUserLocation = args["enabled"] as? Bool ?? false
+            let enabled = args["enabled"] as? Bool ?? false
+            mapView.showsUserLocation = enabled
+            if enabled {
+                applyMyLocationRepresentation()
+                applyUserTrackingMode(from: myLocationStyleConfig)
+            }
             result(nil)
         case "map#setMyLocationIcon":
             if let iconMap = args["icon"] as? [String: Any] {
-                applyMyLocationIcon(iconMap)
+                myLocationIconConfig = iconMap
             } else {
-                resetMyLocationIcon()
+                myLocationIconConfig = nil
             }
+            applyMyLocationRepresentation()
+            result(nil)
+        case "map#setMyLocationStyle":
+            myLocationStyleConfig = args["style"] as? [String: Any]
+            applyMyLocationRepresentation()
+            applyUserTrackingMode(from: myLocationStyleConfig)
+            result(nil)
+        case "map#getMyLocation":
+            result(readMyLocation())
+        case "map#moveToMyLocation":
+            moveToMyLocation(animated: args["animated"] as? Bool ?? true)
             result(nil)
         case "map#setMyLocationButtonEnabled",
              "map#setZoomControlsEnabled",
@@ -294,7 +313,14 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
         if let minZoom = args["minZoom"] as? Double { mapView.minZoomLevel = CGFloat(minZoom) }
         if let maxZoom = args["maxZoom"] as? Double { mapView.maxZoomLevel = CGFloat(maxZoom) }
         if args["myLocationEnabled"] as? Bool == true { mapView.showsUserLocation = true }
-        if let iconMap = args["myLocationIcon"] as? [String: Any] { applyMyLocationIcon(iconMap) }
+        if let iconMap = args["myLocationIcon"] as? [String: Any] {
+            myLocationIconConfig = iconMap
+        }
+        if let styleMap = args["myLocationStyle"] as? [String: Any] {
+            myLocationStyleConfig = styleMap
+        }
+        applyMyLocationRepresentation()
+        applyUserTrackingMode(from: myLocationStyleConfig)
         if let limits = args["regionLimits"] as? [String: Any] {
             setRegionLimits(["bounds": limits])
         }
@@ -319,16 +345,96 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
         }
     }
     
-    private func applyMyLocationIcon(_ iconMap: [String: Any]) {
-        guard let typedData = iconMap["bytes"] as? FlutterStandardTypedData,
-              let image = UIImage(data: typedData.data) else { return }
+    private func applyMyLocationRepresentation() {
         let representation = MAUserLocationRepresentation()
-        representation.image = image
+        let style = myLocationStyleConfig ?? [:]
+        if let showsRing = style["showsAccuracyRing"] as? Bool {
+            representation.showsAccuracyRing = showsRing
+        }
+        if let showsHeading = style["showsHeadingIndicator"] as? Bool {
+            representation.showsHeadingIndicator = showsHeading
+        }
+        if let pulse = style["enablePulseAnimation"] as? Bool {
+            representation.enablePulseAnnimation = pulse
+        }
+        if let stroke = style["strokeColor"] as? Int {
+            representation.strokeColor = uiColor(from: stroke)
+        }
+        if let fill = style["fillColor"] as? Int {
+            representation.fillColor = uiColor(from: fill)
+        }
+        if let width = style["strokeWidth"] as? Double {
+            representation.lineWidth = CGFloat(width)
+        }
+        if let dotFill = style["locationDotFillColor"] as? Int {
+            representation.locationDotFillColor = uiColor(from: dotFill)
+        }
+        if let dotBg = style["locationDotBgColor"] as? Int {
+            representation.locationDotBgColor = uiColor(from: dotBg)
+        }
+        if let iconMap = myLocationIconConfig,
+           let typedData = iconMap["bytes"] as? FlutterStandardTypedData,
+           let image = UIImage(data: typedData.data) {
+            representation.image = image
+        }
         mapView.update(representation)
     }
-    
-    private func resetMyLocationIcon() {
-        mapView.update(MAUserLocationRepresentation())
+
+    private func applyUserTrackingMode(from style: [String: Any]?) {
+        let mode = userTrackingModeValue(from: style)
+        mapView.setUserTrackingMode(mode, animated: false)
+    }
+
+    private func userTrackingModeValue(from style: [String: Any]?) -> MAUserTrackingMode {
+        if let tracking = style?["trackingMode"] as? String {
+            switch tracking {
+            case "follow":
+                return .follow
+            case "followWithHeading":
+                return .followWithHeading
+            default:
+                return .none
+            }
+        }
+        switch style?["type"] as? String {
+        case "follow", "followNoCenter":
+            return .follow
+        case "mapRotate", "mapRotateNoCenter", "locationRotate", "locationRotateNoCenter":
+            return .followWithHeading
+        default:
+            return .none
+        }
+    }
+
+    private func readMyLocation() -> [String: Any]? {
+        guard let location = mapView.userLocation.location else { return nil }
+        var map: [String: Any] = [
+            "latitude": location.coordinate.latitude,
+            "longitude": location.coordinate.longitude,
+            "accuracy": location.horizontalAccuracy,
+        ]
+        if location.course >= 0 { map["bearing"] = location.course }
+        if location.speed >= 0 { map["speed"] = location.speed }
+        return map
+    }
+
+    private func moveToMyLocation(animated: Bool) {
+        guard let location = mapView.userLocation.location else {
+            mapView.setUserTrackingMode(.follow, animated: animated)
+            return
+        }
+        mapView.setCenter(location.coordinate, animated: animated)
+    }
+
+    private func userTrackingModeWireValue(_ mode: MAUserTrackingMode) -> String {
+        switch mode {
+        case .follow:
+            return "follow"
+        case .followWithHeading:
+            return "followWithHeading"
+        default:
+            return "none"
+        }
     }
     
     // MARK: - Camera
@@ -689,6 +795,29 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
     func mapView(_ mapView: MAMapView!, didSelect view: MAAnnotationView!) {
         guard let annotation = view.annotation as? GaodePointAnnotation else { return }
         emit("markerTap", payload: ["id": annotation.markerId])
+    }
+
+    func mapView(_ mapView: MAMapView!, didUpdate userLocation: MAUserLocation!, updatingLocation: Bool) {
+        guard updatingLocation, let location = userLocation.location else { return }
+        emit(
+            "myLocationChange",
+            payload: {
+                var payload: [String: Any] = [
+                    "coordinate": coordinateMap(location.coordinate),
+                    "accuracy": location.horizontalAccuracy,
+                ]
+                if location.course >= 0 { payload["bearing"] = location.course }
+                if location.speed >= 0 { payload["speed"] = location.speed }
+                return payload
+            }()
+        )
+    }
+
+    func mapView(_ mapView: MAMapView!, didChange mode: MAUserTrackingMode, animated: Bool) {
+        emit(
+            "userTrackingModeChange",
+            payload: ["mode": userTrackingModeWireValue(mode)]
+        )
     }
     
     func mapView(_ mapView: MAMapView!, didAnnotationViewTappedCalloutFor view: MAAnnotationView!) {

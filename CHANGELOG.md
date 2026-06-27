@@ -2,9 +2,7 @@
 
 All notable changes to this project are documented in this file.
 
-## Unreleased
-
-## 2.0.0
+## 1.1.0
 
 ### Added
 
@@ -18,6 +16,12 @@ All notable changes to this project are documented in this file.
 - Map tools: `takeSnapshot`, `toScreenLocation`, `fromScreenLocation`.
 - Example app map tab demos: traffic, animated camera, overlays, fit bounds, ground
   overlay, heatmap, and offline catalog probe.
+- **Location SDK:** `LocationOptions` fields `gpsFirst`, `gpsFirstTimeout`, `sensorEnable`
+  (Android), and `locationTimeout` / `reGeocodeTimeout` (iOS). Android now maps `protocol`
+  and `wifiActiveScan` (via `setWifiScan`) correctly.
+- **Map my-location:** `GaodeMyLocationStyle`, `GaodeMyLocationType`,
+  `GaodeUserTrackingMode`, `setMyLocationStyle`, `getMyLocation`, `moveToMyLocation`.
+- Map events: `GaodeMapMyLocationChangeEvent`, `GaodeMapUserTrackingModeChangeEvent` (iOS).  
 
 ### Fixed
 
@@ -40,6 +44,13 @@ All notable changes to this project are documented in this file.
 - iOS offline map `pause` no longer calls `cancelAll()` when a city is not found.
 - iOS overlay `visible` / `zIndex`, tile `tileSize`, initial `regionLimits`, and offline
   `"paused"` status wiring.
+- iOS `LocationResult` no longer hard-codes `locationType`; enriches re-geocode fields when
+  available.
+- Android `moveToMyLocation` restores the configured `myLocationStyle` after a temporary
+  one-shot locate when no fix was cached.
+- iOS `setMyLocationEnabled(true)` re-applies my-location representation and tracking mode.
+- Android `LocationOptions.locationPurpose: none` clears the native scene (sets purpose to
+  `null`).  
 
 ### Removed
 

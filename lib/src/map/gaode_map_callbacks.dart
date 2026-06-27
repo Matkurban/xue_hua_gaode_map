@@ -1,5 +1,6 @@
 import '../core/gaode_coordinate.dart';
 import 'camera_position.dart';
+import 'gaode_my_location_style.dart';
 
 /// Discriminated map events emitted from the native map view.
 sealed class GaodeMapEvent {
@@ -59,6 +60,21 @@ sealed class GaodeMapEvent {
         );
       case 'infoWindowTap':
         return GaodeMapInfoWindowTapEvent(id: map['id'] as String);
+      case 'myLocationChange':
+        return GaodeMapMyLocationChangeEvent(
+          coordinate: GaodeCoordinate.fromMap(
+            map['coordinate'] as Map<dynamic, dynamic>,
+          ),
+          accuracy: (map['accuracy'] as num?)?.toDouble(),
+          bearing: (map['bearing'] as num?)?.toDouble(),
+          speed: (map['speed'] as num?)?.toDouble(),
+        );
+      case 'userTrackingModeChange':
+        return GaodeMapUserTrackingModeChangeEvent(
+          mode: GaodeUserTrackingModeValue.fromWire(
+            map['mode'] as String?,
+          ),
+        );
       default:
         return GaodeMapUnknownEvent(type: type);
       }
@@ -123,6 +139,26 @@ class GaodeMapInfoWindowTapEvent extends GaodeMapEvent {
   const GaodeMapInfoWindowTapEvent({required this.id});
 
   final String id;
+}
+
+class GaodeMapMyLocationChangeEvent extends GaodeMapEvent {
+  const GaodeMapMyLocationChangeEvent({
+    required this.coordinate,
+    this.accuracy,
+    this.bearing,
+    this.speed,
+  });
+
+  final GaodeCoordinate coordinate;
+  final double? accuracy;
+  final double? bearing;
+  final double? speed;
+}
+
+class GaodeMapUserTrackingModeChangeEvent extends GaodeMapEvent {
+  const GaodeMapUserTrackingModeChangeEvent({required this.mode});
+
+  final GaodeUserTrackingMode mode;
 }
 
 class GaodeMapUnknownEvent extends GaodeMapEvent {

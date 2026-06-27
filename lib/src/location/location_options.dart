@@ -18,6 +18,11 @@ class LocationOptions {
     this.httpTimeout = 30000,
     this.geoLanguage = GeoLanguage.defaultLanguage,
     this.protocol = LocationProtocol.http,
+    this.gpsFirst = false,
+    this.gpsFirstTimeout = 30000,
+    this.sensorEnable = true,
+    this.locationTimeout,
+    this.reGeocodeTimeout,
   });
 
   final bool onceLocation;
@@ -32,10 +37,36 @@ class LocationOptions {
   final bool allowsBackgroundUpdates;
   final bool mockEnable;
   final bool locationCacheEnable;
+
+  /// Whether to allow active Wi-Fi scanning during location. **Android only.**
+  ///
+  /// Mapped to [AMapLocationClientOption.setWifiScan]. The legacy native
+  /// `setWifiActiveScan` API is deprecated.
   final bool wifiActiveScan;
   final int httpTimeout;
   final GeoLanguage geoLanguage;
   final LocationProtocol protocol;
+
+  /// Prefer GPS fix before returning network result in single-shot high-accuracy
+  /// mode. **Android only.**
+  final bool gpsFirst;
+
+  /// Max wait for GPS when [gpsFirst] is true (ms, 5000–30000). **Android only.**
+  final int gpsFirstTimeout;
+
+  /// Whether to use device sensors to assist positioning. **Android only.**
+  final bool sensorEnable;
+
+  /// Single-shot location timeout in seconds (min 2). **iOS only.**
+  ///
+  /// When null, iOS uses the native default (10s).
+  final int? locationTimeout;
+
+  /// Reverse-geocode timeout in seconds (min 2). **iOS only.**
+  ///
+  /// When null, falls back to [httpTimeout] / 1000 (min 2s) for backward
+  /// compatibility, then the native default (5s).
+  final int? reGeocodeTimeout;
 
   LocationOptions copyWith({
     bool? onceLocation,
@@ -54,6 +85,11 @@ class LocationOptions {
     int? httpTimeout,
     GeoLanguage? geoLanguage,
     LocationProtocol? protocol,
+    bool? gpsFirst,
+    int? gpsFirstTimeout,
+    bool? sensorEnable,
+    int? locationTimeout,
+    int? reGeocodeTimeout,
   }) {
     return LocationOptions(
       onceLocation: onceLocation ?? this.onceLocation,
@@ -75,6 +111,11 @@ class LocationOptions {
       httpTimeout: httpTimeout ?? this.httpTimeout,
       geoLanguage: geoLanguage ?? this.geoLanguage,
       protocol: protocol ?? this.protocol,
+      gpsFirst: gpsFirst ?? this.gpsFirst,
+      gpsFirstTimeout: gpsFirstTimeout ?? this.gpsFirstTimeout,
+      sensorEnable: sensorEnable ?? this.sensorEnable,
+      locationTimeout: locationTimeout ?? this.locationTimeout,
+      reGeocodeTimeout: reGeocodeTimeout ?? this.reGeocodeTimeout,
     );
   }
 
@@ -95,6 +136,11 @@ class LocationOptions {
     'httpTimeout': httpTimeout,
     'geoLanguage': _geoLanguageValue(geoLanguage),
     'protocol': protocol == LocationProtocol.https ? 'https' : 'http',
+    'gpsFirst': gpsFirst,
+    'gpsFirstTimeout': gpsFirstTimeout,
+    'sensorEnable': sensorEnable,
+    if (locationTimeout != null) 'locationTimeout': locationTimeout,
+    if (reGeocodeTimeout != null) 'reGeocodeTimeout': reGeocodeTimeout,
   };
 
   static String _locationModeValue(LocationMode mode) {

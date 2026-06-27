@@ -65,7 +65,7 @@ requesting runtime location permissions (this plugin does not request them for y
 
 ```yaml
 dependencies:
-  xue_hua_gaode_map: ^1.0.0
+  xue_hua_gaode_map: ^lasted
   permission_handler: ^11.3.1
 ```
 
@@ -301,10 +301,15 @@ All fields are optional and have sensible defaults.
 | `allowsBackgroundUpdates` | `false` | iOS: allow location updates while backgrounded |
 | `mockEnable` | `false` | Allow mock/simulated locations |
 | `locationCacheEnable` | `true` | Allow returning cached results |
-| `wifiActiveScan` | `false` | Actively scan Wi-Fi for better accuracy (more power) |
-| `httpTimeout` | `30000` | Network timeout in milliseconds |
+| `wifiActiveScan` | `false` | Android: allow Wi-Fi refresh for better accuracy (maps to `setWifiScan`) |
+| `httpTimeout` | `30000` | Android network timeout (ms); iOS fallback for `reGeocodeTimeout` |
 | `geoLanguage` | `GeoLanguage.defaultLanguage` | Language of reverse-geocoded fields |
 | `protocol` | `LocationProtocol.http` | `http` or `https` for SDK network calls |
+| `gpsFirst` | `false` | **Android:** wait for GPS before returning network fix (single-shot) |
+| `gpsFirstTimeout` | `30000` | **Android:** max GPS wait when `gpsFirst` is true (ms, 5000–30000) |
+| `sensorEnable` | `true` | **Android:** use device sensors to assist positioning |
+| `locationTimeout` | `null` | **iOS:** single-fix timeout in seconds (min 2; default 10) |
+| `reGeocodeTimeout` | `null` | **iOS:** reverse-geocode timeout in seconds (min 2; default 5) |
 
 Enums:
 
@@ -442,6 +447,7 @@ GaodeMapView(
 | `mapType` | `normal` | `normal`, `satellite`, `night`, `navi`, `bus` (bus: Android only) |
 | `myLocationEnabled` | `false` | Show the my-location dot |
 | `myLocationIcon` | `null` | Custom PNG icon for the my-location dot |
+| `myLocationStyle` | `GaodeMyLocationStyle()` | Tracking mode, accuracy ring, interval (see below) |
 | `myLocationButtonEnabled` | `false` | Native locate button (**Android only**) |
 | `zoomControlsEnabled` | `false` | Native +/- buttons (**Android only**) |
 | `zoomControlsPosition` | `rightBottom` | Zoom button preset position (**Android only**) |
@@ -488,6 +494,9 @@ Obtained from `onMapCreated`. Commands return `Future`; events are available via
 | `setLogoPosition` | Move logo watermark |
 | `setMinMaxZoom` | Set zoom limits |
 | `setMyLocationEnabled` / `setMyLocationIcon` | Location dot |
+| `setMyLocationStyle` | Tracking mode, accuracy ring, interval |
+| `getMyLocation()` | Last known my-location fix from the map (or `null`) |
+| `moveToMyLocation({animated})` | Center camera on my location |
 | `setMyLocationButtonEnabled` | Locate button (Android only) |
 | `setZoomControlsEnabled` / `setZoomControlsPosition` | Zoom buttons (Android only) |
 
@@ -530,6 +539,7 @@ Obtained from `onMapCreated`. Commands return `Future`; events are available via
 
 `GaodeMapTapEvent`, `GaodeMapLongPressEvent`, `GaodeMapCameraMoveStartEvent`,
 `GaodeMapCameraMoveEvent`, `GaodeMapCameraMoveEndEvent`, `GaodeMapMarkerTapEvent`,
+`GaodeMapMyLocationChangeEvent`, `GaodeMapUserTrackingModeChangeEvent` (iOS),
 `GaodeMapMarkerDragEvent`, `GaodeMapInfoWindowTapEvent`.
 
 ### Offline maps: `OfflineMapClient`
@@ -633,6 +643,11 @@ calls throw a `StateError`.
 | `LocationClient.reverseGeocode` | `getReGeoLocation` | AMapSearch coordinate-based reverse geocode |
 | `GeofenceClient.setActiveActions(allowsBackgroundLocationUpdates:)` | Ignored | Controls background fence monitoring |
 | `GaodeMapOptions.myLocationIcon` | Supported | Supported |
+| `GaodeMapOptions.myLocationStyle.type` | 8 `MyLocationStyle` modes | Mapped to `userTrackingMode` |
+| `GaodeMapOptions.myLocationStyle.trackingMode` | Ignored | `MAUserTrackingMode` |
+| `GaodeMapController.getMyLocation` | `aMap.myLocation` | `userLocation.location` |
+| `LocationOptions.gpsFirst` / `sensorEnable` | Supported | Ignored |
+| `LocationOptions.locationTimeout` | Ignored | Supported |
 | `GaodeMapOptions.myLocationButtonEnabled` | Native locate button | Not available (no-op) |
 | `GaodeMapOptions.zoomControlsEnabled` / `zoomControlsPosition` | Native +/- buttons (preset positions only) | Not available (no-op) |
 | `GaodeMapOptions.terrainEnabled` | Supported (before MapView creation) | Not available |

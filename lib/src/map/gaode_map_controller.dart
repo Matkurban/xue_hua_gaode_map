@@ -9,6 +9,7 @@ import 'camera_position.dart';
 import 'gaode_map_callbacks.dart';
 import 'gaode_map_enums.dart';
 import 'gaode_map_image.dart';
+import 'gaode_my_location_style.dart';
 import 'gaode_map_marker.dart';
 import 'gaode_map_point.dart';
 import 'lat_lng_bounds.dart';
@@ -184,6 +185,32 @@ class GaodeMapController {
   Future<void> setMyLocationButtonEnabled(bool enabled) {
     return invokeGaodeMethod<void>(_channel, 'map#setMyLocationButtonEnabled', {
       'enabled': enabled,
+    });
+  }
+
+  Future<void> setMyLocationStyle(GaodeMyLocationStyle style) {
+    return invokeGaodeMethod<void>(_channel, 'map#setMyLocationStyle', {
+      'style': style.toMap(),
+    });
+  }
+
+  /// Returns the last known my-location fix from the map, or null if unavailable.
+  Future<GaodeCoordinate?> getMyLocation() async {
+    final result = await invokeGaodeMethod<Map<dynamic, dynamic>>(
+      _channel,
+      'map#getMyLocation',
+    );
+    if (result == null) return null;
+    return GaodeCoordinate.fromMap(result);
+  }
+
+  /// Moves the camera to the current my-location fix.
+  ///
+  /// When no fix is cached yet, Android triggers one-shot locate mode; iOS
+  /// animates to [userLocation] when available.
+  Future<void> moveToMyLocation({bool animated = true}) {
+    return invokeGaodeMethod<void>(_channel, 'map#moveToMyLocation', {
+      'animated': animated,
     });
   }
 

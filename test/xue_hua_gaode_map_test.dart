@@ -61,6 +61,24 @@ void main() {
     expect(map['desiredAccuracy'], 'best');
     expect(map['protocol'], 'http');
     expect(map['geoLanguage'], 'default');
+    expect(map['gpsFirst'], isFalse);
+    expect(map['sensorEnable'], isTrue);
+  });
+
+  test('LocationOptions.toMap serializes extended fields', () {
+    const options = LocationOptions(
+      gpsFirst: true,
+      gpsFirstTimeout: 15000,
+      sensorEnable: false,
+      locationTimeout: 8,
+      reGeocodeTimeout: 6,
+    );
+    final map = options.toMap();
+    expect(map['gpsFirst'], isTrue);
+    expect(map['gpsFirstTimeout'], 15000);
+    expect(map['sensorEnable'], isFalse);
+    expect(map['locationTimeout'], 8);
+    expect(map['reGeocodeTimeout'], 6);
   });
 
   test('LocationOptions.toMap serializes enums', () {
@@ -521,6 +539,43 @@ void main() {
     setHandler(channel, null);
   });
 
+  test('LocationOptions.toMap serializes locationPurpose none', () {
+    const options = LocationOptions(locationPurpose: LocationPurpose.none);
+    expect(options.toMap()['locationPurpose'], 'none');
+  });
+
+  test('GaodeMapController routes my-location calls through per-view channel', () async {
+    const channel = MethodChannel('xue_hua_gaode_map/map_8');
+    final calls = <String>[];
+    setHandler(channel, (MethodCall call) async {
+      calls.add(call.method);
+      if (call.method == 'map#getMyLocation') {
+        return {'latitude': 39.9, 'longitude': 116.4, 'accuracy': 10.0};
+      }
+      return null;
+    });
+
+    final controller = GaodeMapController.init(8);
+    await controller.setMyLocationStyle(
+      const GaodeMyLocationStyle(type: GaodeMyLocationType.follow),
+    );
+    await controller.moveToMyLocation();
+    final fix = await controller.getMyLocation();
+
+    expect(
+      calls,
+      containsAll([
+        'map#setMyLocationStyle',
+        'map#moveToMyLocation',
+        'map#getMyLocation',
+      ]),
+    );
+    expect(fix?.latitude, 39.9);
+    expect(fix?.longitude, 116.4);
+
+    setHandler(channel, null);
+  });
+
   test('GaodeMapController routes marker calls through per-view channel', () async {
     const channel = MethodChannel('xue_hua_gaode_map/map_7');
     String? method;
@@ -551,5 +606,46 @@ void main() {
     });
     expect(event.status, OfflineMapDownloadStatus.paused);
     expect(event.completePercent, 10);
+  });
+
+  test('GaodeMyLocationStyle.toMap serializes tracking and colors', () {
+    const style = GaodeMyLocationStyle(
+      type: GaodeMyLocationType.follow,
+      trackingMode: GaodeUserTrackingMode.followWithHeading,
+      interval: 2000,
+      strokeColor: 0xFF0000FF,
+      fillColor: 0x330000FF,
+    );
+    final map = style.toMap();
+    expect(map['type'], 'follow');
+    expect(map['trackingMode'], 'followWithHeading');
+    expect(map['interval'], 2000);
+    expect(map['strokeColor'], 0xFF0000FF);
+  });
+
+  test('GaodeMapEvent.fromMap parses myLocationChange', () {
+    final event = GaodeMapEvent.fromMap({
+      'type': 'myLocationChange',
+      'coordinate': {'latitude': 39.9, 'longitude': 116.4},
+      'accuracy': 12.5,
+      'bearing': 90.0,
+    });
+    expect(event, isA<GaodeMapMyLocationChangeEvent>());
+    final loc = event as GaodeMapMyLocationChangeEvent;
+    expect(loc.coordinate.latitude, 39.9);
+    expect(loc.accuracy, 12.5);
+    expect(loc.bearing, 90.0);
+  });
+
+  test('GaodeMapEvent.fromMap parses userTrackingModeChange', () {
+    final event = GaodeMapEvent.fromMap({
+      'type': 'userTrackingModeChange',
+      'mode': 'follow',
+    });
+    expect(event, isA<GaodeMapUserTrackingModeChangeEvent>());
+    expect(
+      (event as GaodeMapUserTrackingModeChangeEvent).mode,
+      GaodeUserTrackingMode.follow,
+    );
   });
 }

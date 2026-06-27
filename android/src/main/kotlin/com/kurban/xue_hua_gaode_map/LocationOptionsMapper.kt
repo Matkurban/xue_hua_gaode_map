@@ -2,6 +2,7 @@ package com.kurban.xue_hua_gaode_map
 
 import com.amap.api.location.AMapLocationClientOption
 import com.amap.api.location.AMapLocationClientOption.AMapLocationMode
+import com.amap.api.location.AMapLocationClientOption.AMapLocationProtocol
 import com.amap.api.location.AMapLocationClientOption.AMapLocationPurpose
 import com.amap.api.location.AMapLocationClientOption.GeoLanguage
 
@@ -26,12 +27,28 @@ object LocationOptionsMapper {
             "signIn" -> option.locationPurpose = AMapLocationPurpose.SignIn
             "transport" -> option.locationPurpose = AMapLocationPurpose.Transport
             "sport" -> option.locationPurpose = AMapLocationPurpose.Sport
+            else -> option.locationPurpose = null
         }
 
         when (args["geoLanguage"] as? String) {
             "english" -> option.geoLanguage = GeoLanguage.EN
             "chinese" -> option.geoLanguage = GeoLanguage.ZH
             else -> option.geoLanguage = GeoLanguage.DEFAULT
+        }
+
+        (args["wifiActiveScan"] as? Boolean)?.let { option.isWifiScan = it }
+
+        (args["gpsFirst"] as? Boolean)?.let { option.isGpsFirst = it }
+        (args["gpsFirstTimeout"] as? Number)?.let {
+            option.gpsFirstTimeout = it.toLong().coerceIn(5_000L, 30_000L)
+        }
+        (args["sensorEnable"] as? Boolean)?.let { option.isSensorEnable = it }
+
+        when (args["protocol"] as? String) {
+            "https" ->
+                AMapLocationClientOption.setLocationProtocol(AMapLocationProtocol.HTTPS)
+            else ->
+                AMapLocationClientOption.setLocationProtocol(AMapLocationProtocol.HTTP)
         }
     }
 }

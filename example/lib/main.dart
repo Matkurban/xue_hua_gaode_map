@@ -449,6 +449,7 @@ class _MapTabState extends State<MapTab> {
   StreamSubscription<GaodeMapEvent>? _eventSub;
   GaodeMapType _mapType = GaodeMapType.normal;
   GaodeMapImage? _myLocationIcon;
+  GaodeMyLocationType _myLocationType = GaodeMyLocationType.locationRotateNoCenter;
   bool _trafficEnabled = false;
   int _markerSeq = 0;
   final _offlineClient = OfflineMapClient();
@@ -492,6 +493,14 @@ class _MapTabState extends State<MapTab> {
           widget.onLog('Info window tapped: $id');
         case GaodeMapCameraMoveEndEvent(:final position):
           widget.onLog('Camera zoom: ${position.zoom.toStringAsFixed(1)}');
+        case GaodeMapMyLocationChangeEvent(:final coordinate, :final accuracy):
+          widget.onLog(
+            'My location: ${coordinate.latitude.toStringAsFixed(5)}, '
+            '${coordinate.longitude.toStringAsFixed(5)} '
+            '(±${accuracy?.toStringAsFixed(0) ?? '?'})',
+          );
+        case GaodeMapUserTrackingModeChangeEvent(:final mode):
+          widget.onLog('Tracking mode: ${mode.name}');
         default:
           break;
       }
@@ -635,6 +644,38 @@ class _MapTabState extends State<MapTab> {
     widget.onLog('Heatmap added');
   }
 
+  Future<void> _cycleMyLocationType() async {
+    const order = [
+      GaodeMyLocationType.locationRotateNoCenter,
+      GaodeMyLocationType.follow,
+      GaodeMyLocationType.locate,
+    ];
+    final currentIndex = order.indexOf(_myLocationType);
+    final next = order[(currentIndex + 1) % order.length];
+    setState(() => _myLocationType = next);
+    await _controller?.setMyLocationStyle(
+      GaodeMyLocationStyle(type: next),
+    );
+    widget.onLog('My location type: ${next.name}');
+  }
+
+  Future<void> _readMyLocation() async {
+    final fix = await _controller?.getMyLocation();
+    if (fix == null) {
+      widget.onLog('My location: unavailable');
+      return;
+    }
+    widget.onLog(
+      'My location read: ${fix.latitude.toStringAsFixed(5)}, '
+      '${fix.longitude.toStringAsFixed(5)}',
+    );
+  }
+
+  Future<void> _moveToMyLocation() async {
+    await _controller?.moveToMyLocation();
+    widget.onLog('moveToMyLocation requested');
+  }
+
   Future<void> _probeOfflineMaps() async {
     try {
       _offlineSub ??= _offlineClient.progressStream.listen((event) {
@@ -678,6 +719,7 @@ class _MapTabState extends State<MapTab> {
                     ),
                     myLocationEnabled: true,
                     myLocationIcon: _myLocationIcon,
+                    myLocationStyle: GaodeMyLocationStyle(type: _myLocationType),
                     myLocationButtonEnabled:
                         defaultTargetPlatform == TargetPlatform.android,
                     zoomControlsEnabled:
@@ -736,6 +778,18 @@ class _MapTabState extends State<MapTab> {
               OutlinedButton(
                 onPressed: _addHeatmap,
                 child: const Text('Heatmap'),
+              ),
+              OutlinedButton(
+                onPressed: _cycleMyLocationType,
+                child: const Text('My loc mode'),
+              ),
+              OutlinedButton(
+                onPressed: _readMyLocation,
+                child: const Text('Read my loc'),
+              ),
+              OutlinedButton(
+                onPressed: _moveToMyLocation,
+                child: const Text('Center on me'),
               ),
               OutlinedButton(
                 onPressed: _probeOfflineMaps,

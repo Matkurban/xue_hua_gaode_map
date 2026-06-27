@@ -1,6 +1,7 @@
 import 'camera_position.dart';
 import 'gaode_map_enums.dart';
 import 'gaode_map_image.dart';
+import 'gaode_my_location_style.dart';
 import 'lat_lng_bounds.dart';
 
 /// Initial configuration applied when the map view is created.
@@ -12,6 +13,7 @@ class GaodeMapOptions {
     this.mapType = GaodeMapType.normal,
     this.myLocationEnabled = false,
     this.myLocationIcon,
+    this.myLocationStyle = const GaodeMyLocationStyle(),
     this.myLocationButtonEnabled = false,
     this.zoomControlsEnabled = false,
     this.zoomControlsPosition = GaodeMapZoomControlsPosition.rightBottom,
@@ -36,6 +38,7 @@ class GaodeMapOptions {
   final GaodeMapType mapType;
   final bool myLocationEnabled;
   final GaodeMapImage? myLocationIcon;
+  final GaodeMyLocationStyle myLocationStyle;
   final bool myLocationButtonEnabled;
   final bool zoomControlsEnabled;
   final GaodeMapZoomControlsPosition zoomControlsPosition;
@@ -62,6 +65,7 @@ class GaodeMapOptions {
     'mapType': mapType.wireValue,
     'myLocationEnabled': myLocationEnabled,
     'myLocationIcon': myLocationIcon?.toMap(),
+    'myLocationStyle': myLocationStyle.toMap(),
     'myLocationButtonEnabled': myLocationButtonEnabled,
     'zoomControlsEnabled': zoomControlsEnabled,
     'zoomControlsPosition': zoomControlsPosition.wireValue,

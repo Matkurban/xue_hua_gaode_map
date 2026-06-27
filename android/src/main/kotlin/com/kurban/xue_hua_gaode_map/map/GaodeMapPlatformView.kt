@@ -11,6 +11,7 @@ import com.amap.api.maps.AMap.OnMapLongClickListener
 import com.amap.api.maps.AMap.OnMapScreenShotListener
 import com.amap.api.maps.AMap.OnMarkerClickListener
 import com.amap.api.maps.AMap.OnMarkerDragListener
+import com.amap.api.maps.AMap.OnMyLocationChangeListener
 import com.amap.api.maps.AMapOptions
 import com.amap.api.maps.CameraUpdateFactory
 import com.amap.api.maps.MapsInitializer
@@ -81,6 +82,8 @@ class GaodeMapPlatformView(
     private val tileOverlays = HashMap<String, TileOverlay>()
 
     private var myLocationIconConfig: Map<String, Any?>? = null
+    private var myLocationStyleConfig: Map<String, Any?>? = null
+    private var restoreMyLocationStyleAfterLocate = false
     private var cameraMoving = false
     private var disposed = false
 
@@ -118,6 +121,26 @@ class GaodeMapPlatformView(
             val id = marker.getObject() as? String ?: return@setOnInfoWindowClickListener
             emit("infoWindowTap", mapOf("id" to id))
         }
+        aMap.setOnMyLocationChangeListener(
+            OnMyLocationChangeListener { location ->
+                if (restoreMyLocationStyleAfterLocate) {
+                    restoreMyLocationStyleAfterLocate = false
+                    aMap.myLocationStyle = buildMyLocationStyle()
+                }
+                emit(
+                    "myLocationChange",
+                    mapOf(
+                        "coordinate" to
+                            GaodeMapParsing.coordinateMap(
+                                LatLng(location.latitude, location.longitude),
+                            ),
+                        "accuracy" to location.accuracy.toDouble(),
+                        "bearing" to location.bearing.toDouble(),
+                        "speed" to location.speed.toDouble(),
+                    ),
+                )
+            },
+        )
     }
 
     override fun getView(): View = mapView
@@ -216,6 +239,21 @@ class GaodeMapPlatformView(
                     if (aMap.isMyLocationEnabled) {
                         aMap.myLocationStyle = buildMyLocationStyle()
                     }
+                    result.success(null)
+                }
+                "map#setMyLocationStyle" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    myLocationStyleConfig = call.argument<Map<String, Any?>>("style")
+                    if (aMap.isMyLocationEnabled) {
+                        aMap.myLocationStyle = buildMyLocationStyle()
+                    }
+                    result.success(null)
+                }
+                "map#getMyLocation" -> {
+                    result.success(readMyLocation())
+                }
+                "map#moveToMyLocation" -> {
+                    moveToMyLocation(call.argument<Boolean>("animated") ?: true)
                     result.success(null)
                 }
                 "map#setMyLocationButtonEnabled" -> {
@@ -456,6 +494,8 @@ class GaodeMapPlatformView(
 
         @Suppress("UNCHECKED_CAST")
         myLocationIconConfig = params["myLocationIcon"] as? Map<String, Any?>
+        @Suppress("UNCHECKED_CAST")
+        myLocationStyleConfig = params["myLocationStyle"] as? Map<String, Any?>
 
         if (params["myLocationEnabled"] as? Boolean == true && AmapPrivacyState.privacyAgreed) {
             setMyLocationEnabled(true)
@@ -562,8 +602,18 @@ class GaodeMapPlatformView(
     }
 
     private fun buildMyLocationStyle(): MyLocationStyle {
+        val config = myLocationStyleConfig
         return MyLocationStyle().apply {
-            myLocationType(MyLocationStyle.LOCATION_TYPE_LOCATION_ROTATE_NO_CENTER)
+            myLocationType(myLocationTypeValue(config?.get("type") as? String))
+            interval((config?.get("interval") as? Number)?.toLong()?.coerceAtLeast(1000L) ?: 1000L)
+            showMyLocation(config?.get("showMarker") as? Boolean ?: true)
+            (config?.get("strokeColor") as? Number)?.toLong()?.let {
+                strokeColor(GaodeMapParsing.colorFromArgb(it))
+            }
+            (config?.get("fillColor") as? Number)?.toLong()?.let {
+                radiusFillColor(GaodeMapParsing.colorFromArgb(it))
+            }
+            (config?.get("strokeWidth") as? Number)?.toFloat()?.let { strokeWidth(it) }
             val icon = myLocationIconConfig ?: return@apply
             val bytes = icon["bytes"] as? ByteArray ?: return@apply
             val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return@apply
@@ -572,6 +622,47 @@ class GaodeMapPlatformView(
             val anchorV = (icon["anchorV"] as? Number)?.toFloat() ?: 0.5f
             anchor(anchorU, anchorV)
         }
+    }
+
+    private fun myLocationTypeValue(type: String?): Int {
+        return when (type) {
+            "show" -> MyLocationStyle.LOCATION_TYPE_SHOW
+            "locate" -> MyLocationStyle.LOCATION_TYPE_LOCATE
+            "follow" -> MyLocationStyle.LOCATION_TYPE_FOLLOW
+            "mapRotate" -> MyLocationStyle.LOCATION_TYPE_MAP_ROTATE
+            "locationRotate" -> MyLocationStyle.LOCATION_TYPE_LOCATION_ROTATE
+            "followNoCenter" -> MyLocationStyle.LOCATION_TYPE_FOLLOW_NO_CENTER
+            "mapRotateNoCenter" -> MyLocationStyle.LOCATION_TYPE_MAP_ROTATE_NO_CENTER
+            "locationRotateNoCenter" -> MyLocationStyle.LOCATION_TYPE_LOCATION_ROTATE_NO_CENTER
+            else -> MyLocationStyle.LOCATION_TYPE_LOCATION_ROTATE_NO_CENTER
+        }
+    }
+
+    private fun readMyLocation(): Map<String, Any?>? {
+        val loc = aMap.myLocation ?: return null
+        return mapOf(
+            "latitude" to loc.latitude,
+            "longitude" to loc.longitude,
+            "accuracy" to loc.accuracy.toDouble(),
+            "bearing" to loc.bearing.toDouble(),
+            "speed" to loc.speed.toDouble(),
+        )
+    }
+
+    private fun moveToMyLocation(animated: Boolean) {
+        val loc = aMap.myLocation
+        if (loc != null) {
+            val update = CameraUpdateFactory.newLatLng(LatLng(loc.latitude, loc.longitude))
+            if (animated) {
+                aMap.animateCamera(update)
+            } else {
+                aMap.moveCamera(update)
+            }
+            return
+        }
+        restoreMyLocationStyleAfterLocate = true
+        aMap.myLocationStyle =
+            buildMyLocationStyle().myLocationType(MyLocationStyle.LOCATION_TYPE_LOCATE)
     }
 
     private fun addMarker(call: MethodCall) {
@@ -715,7 +806,7 @@ class GaodeMapPlatformView(
         val provider = HeatmapTileProvider.Builder()
             .weightedData(weighted)
             .radius(radius)
-            .transparency((1.0 - opacity).toFloat())
+            .transparency(1.0 - opacity)
             .build()
         val overlay = aMap.addTileOverlay(
             TileOverlayOptions()

@@ -27,10 +27,9 @@ enum LocationResultMapper {
             "longitude": location.coordinate.longitude,
             "accuracy": location.horizontalAccuracy,
             "altitude": location.altitude,
-            "bearing": location.course,
-            "speed": location.speed,
+            "bearing": location.course >= 0 ? location.course : nil,
+            "speed": location.speed >= 0 ? location.speed : nil,
             "timestamp": Int(location.timestamp.timeIntervalSince1970 * 1000),
-            "locationType": 1,
             "errorCode": 0,
             "errorInfo": "",
         ]
@@ -47,6 +46,12 @@ enum LocationResultMapper {
             map["adCode"] = reGeocode.adcode
             map["poiName"] = reGeocode.poiName
             map["aoiName"] = reGeocode.aoiName
+            if let building = reGeocode.building {
+                map["buildingId"] = building
+            }
+            if let floor = reGeocode.floor {
+                map["floor"] = floor
+            }
         }
         
         return map
@@ -61,7 +66,6 @@ enum LocationResultMapper {
             "latitude": latitude,
             "longitude": longitude,
             "accuracy": 0,
-            "locationType": 1,
             "timestamp": Int(Date().timeIntervalSince1970 * 1000),
             "errorCode": 0,
             "errorInfo": "",
@@ -129,11 +133,16 @@ enum LocationOptionsMapper {
         
         // Note: `interval` (continuous-update frequency, ms) has no direct
         // equivalent on AMapLocationManager — iOS delivers continuous updates
-        // driven by `distanceFilter` and the system, not a fixed timer. It is
-        // intentionally not mapped to `locationTimeout` (a single-fix timeout).
+        // driven by `distanceFilter` and the system, not a fixed timer.
         
-        if let httpTimeout = options["httpTimeout"] as? Int {
-            manager.reGeocodeTimeout = max(5, httpTimeout / 1000)
+        if let locationTimeout = options["locationTimeout"] as? Int {
+            manager.locationTimeout = max(2, locationTimeout)
+        }
+        
+        if let reGeocodeTimeout = options["reGeocodeTimeout"] as? Int {
+            manager.reGeocodeTimeout = max(2, reGeocodeTimeout)
+        } else if let httpTimeout = options["httpTimeout"] as? Int {
+            manager.reGeocodeTimeout = max(2, httpTimeout / 1000)
         }
         
         if let language = options["geoLanguage"] as? String {

@@ -62,7 +62,7 @@ iOS 两端提供一致的 Dart API。
 
 ```yaml
 dependencies:
-  xue_hua_gaode_map: ^1.0.0
+  xue_hua_gaode_map: ^lasted
   permission_handler: ^11.3.1
 ```
 
@@ -291,10 +291,15 @@ await client.dispose();
 | `allowsBackgroundUpdates` | `false` | iOS：允许后台定位更新 |
 | `mockEnable` | `false` | 是否允许模拟定位 |
 | `locationCacheEnable` | `true` | 是否允许返回缓存结果 |
-| `wifiActiveScan` | `false` | 主动扫描 Wi-Fi 提升精度（更耗电） |
-| `httpTimeout` | `30000` | 网络超时（毫秒） |
+| `wifiActiveScan` | `false` | Android：允许 Wi-Fi 刷新提升精度（映射 `setWifiScan`） |
+| `httpTimeout` | `30000` | Android 网络超时（毫秒）；iOS 作为 `reGeocodeTimeout` 回退 |
 | `geoLanguage` | `GeoLanguage.defaultLanguage` | 逆地理字段语言 |
 | `protocol` | `LocationProtocol.http` | SDK 网络请求使用 `http` 或 `https` |
+| `gpsFirst` | `false` | **Android：** 单次高精度模式下优先等待 GPS |
+| `gpsFirstTimeout` | `30000` | **Android：** `gpsFirst` 时最长等待 GPS（毫秒，5000–30000） |
+| `sensorEnable` | `true` | **Android：** 是否使用传感器辅助定位 |
+| `locationTimeout` | `null` | **iOS：** 单次定位超时（秒，最小 2；默认 10） |
+| `reGeocodeTimeout` | `null` | **iOS：** 逆地理超时（秒，最小 2；默认 5） |
 
 枚举：
 
@@ -427,6 +432,7 @@ GaodeMapView(
 | `mapType` | `normal` | `normal`、`satellite`、`night`、`navi`、`bus`（`bus` 仅 Android） |
 | `myLocationEnabled` | `false` | 显示定位蓝点 |
 | `myLocationIcon` | `null` | 自定义我的位置 PNG 图标 |
+| `myLocationStyle` | `GaodeMyLocationStyle()` | 追踪模式、精度圈、间隔（见下） |
 | `myLocationButtonEnabled` | `false` | 原生定位按钮（**仅 Android**） |
 | `zoomControlsEnabled` | `false` | 原生 +/- 缩放按钮（**仅 Android**） |
 | `zoomControlsPosition` | `rightBottom` | 缩放按钮预设位置（**仅 Android**） |
@@ -473,6 +479,9 @@ GaodeMapView(
 | `setLogoPosition` | 移动 Logo 水印 |
 | `setMinMaxZoom` | 设置缩放限制 |
 | `setMyLocationEnabled` / `setMyLocationIcon` | 定位蓝点 |
+| `setMyLocationStyle` | 追踪模式、精度圈、间隔 |
+| `getMyLocation()` | 读取地图当前蓝点坐标（无则 `null`） |
+| `moveToMyLocation({animated})` | 将相机移动到当前位置 |
 | `setMyLocationButtonEnabled` | 定位按钮（仅 Android） |
 | `setZoomControlsEnabled` / `setZoomControlsPosition` | 缩放按钮（仅 Android） |
 
@@ -515,6 +524,7 @@ GaodeMapView(
 
 `GaodeMapTapEvent`、`GaodeMapLongPressEvent`、`GaodeMapCameraMoveStartEvent`、
 `GaodeMapCameraMoveEvent`、`GaodeMapCameraMoveEndEvent`、`GaodeMapMarkerTapEvent`、
+`GaodeMapMyLocationChangeEvent`、`GaodeMapUserTrackingModeChangeEvent`（iOS）、
 `GaodeMapMarkerDragEvent`、`GaodeMapInfoWindowTapEvent`。
 
 ### 离线地图：`OfflineMapClient`
@@ -616,6 +626,11 @@ try {
 | `LocationClient.reverseGeocode` | `getReGeoLocation` | AMapSearch 坐标逆地理 |
 | `GeofenceClient.setActiveActions(allowsBackgroundLocationUpdates:)` | 忽略 | 控制后台围栏监测 |
 | `GaodeMapOptions.myLocationIcon` | 支持 | 支持 |
+| `GaodeMapOptions.myLocationStyle.type` | 8 种 `MyLocationStyle` 模式 | 映射为 `userTrackingMode` |
+| `GaodeMapOptions.myLocationStyle.trackingMode` | 忽略 | `MAUserTrackingMode` |
+| `GaodeMapController.getMyLocation` | `aMap.myLocation` | `userLocation.location` |
+| `LocationOptions.gpsFirst` / `sensorEnable` | 支持 | 忽略 |
+| `LocationOptions.locationTimeout` | 忽略 | 支持 |
 | `GaodeMapOptions.myLocationButtonEnabled` | 原生定位按钮 | 无（空操作） |
 | `GaodeMapOptions.zoomControlsEnabled` / `zoomControlsPosition` | 原生 +/- 按钮（仅预设位置） | 无（空操作） |
 | `GaodeMapOptions.terrainEnabled` | 支持（MapView 创建前） | 无 |

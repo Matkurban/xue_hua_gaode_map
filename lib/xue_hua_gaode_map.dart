@@ -13,6 +13,7 @@ export 'src/map/gaode_map_callbacks.dart';
 export 'src/map/gaode_map_controller.dart';
 export 'src/map/gaode_map_enums.dart';
 export 'src/map/gaode_map_image.dart';
+export 'src/map/gaode_my_location_style.dart';
 export 'src/map/gaode_map_marker.dart';
 export 'src/map/gaode_map_options.dart';
 export 'src/map/gaode_map_point.dart';
