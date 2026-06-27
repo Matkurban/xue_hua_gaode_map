@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:xue_hua_gaode_map/xue_hua_gaode_map.dart';
 
@@ -445,12 +446,83 @@ class _MapTabState extends State<MapTab> {
   );
 
   GaodeMapController? _controller;
+  StreamSubscription<GaodeMapEvent>? _eventSub;
   GaodeMapType _mapType = GaodeMapType.normal;
+  GaodeMapImage? _myLocationIcon;
+  bool _trafficEnabled = false;
   int _markerSeq = 0;
+  final _offlineClient = OfflineMapClient();
+  StreamSubscription<OfflineMapProgressEvent>? _offlineSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMyLocationIcon();
+  }
+
+  @override
+  void dispose() {
+    _eventSub?.cancel();
+    _offlineSub?.cancel();
+    _offlineClient.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadMyLocationIcon() async {
+    final data = await rootBundle.load('assets/my_location.png');
+    if (!mounted) return;
+    setState(() {
+      _myLocationIcon = GaodeMapImage(bytes: data.buffer.asUint8List());
+    });
+  }
 
   void _onMapCreated(GaodeMapController controller) {
     _controller = controller;
+    _eventSub?.cancel();
+    _eventSub = controller.events.listen((event) {
+      switch (event) {
+        case GaodeMapTapEvent(:final coordinate):
+          widget.onLog(
+            'Tap: ${coordinate.latitude.toStringAsFixed(5)}, '
+            '${coordinate.longitude.toStringAsFixed(5)}',
+          );
+        case GaodeMapMarkerTapEvent(:final id):
+          widget.onLog('Marker tapped: $id');
+        case GaodeMapInfoWindowTapEvent(:final id):
+          widget.onLog('Info window tapped: $id');
+        case GaodeMapCameraMoveEndEvent(:final position):
+          widget.onLog('Camera zoom: ${position.zoom.toStringAsFixed(1)}');
+        default:
+          break;
+      }
+    });
     widget.onLog('Map created');
+    _drawDemoOverlays();
+  }
+
+  Future<void> _drawDemoOverlays() async {
+    final controller = _controller;
+    if (controller == null) return;
+    await controller.addPolyline(
+      GaodeMapPolyline(
+        id: 'demo_line',
+        points: const [
+          GaodeCoordinate(latitude: 39.909187, longitude: 116.397451),
+          GaodeCoordinate(latitude: 39.915, longitude: 116.404),
+        ],
+        color: 0xFF2196F3,
+        width: 8,
+      ),
+    );
+    await controller.addCircle(
+      GaodeMapCircle(
+        id: 'demo_circle',
+        center: _tiananmen,
+        radius: 400,
+        fillColor: 0x332196F3,
+        strokeColor: 0xFF2196F3,
+      ),
+    );
   }
 
   Future<void> _cycleMapType() async {
@@ -461,11 +533,19 @@ class _MapTabState extends State<MapTab> {
     widget.onLog('Map type: ${next.name}');
   }
 
+  Future<void> _toggleTraffic() async {
+    final next = !_trafficEnabled;
+    setState(() => _trafficEnabled = next);
+    await _controller?.setTrafficEnabled(next);
+    widget.onLog('Traffic: $next');
+  }
+
   Future<void> _moveToTiananmen() async {
-    await _controller?.moveCamera(
-      const CameraPosition(target: _tiananmen, zoom: 17),
+    await _controller?.animateCamera(
+      const CameraPosition(target: _tiananmen, zoom: 17, bearing: 0, tilt: 45),
+      durationMs: 600,
     );
-    widget.onLog('Camera moved to Tiananmen');
+    widget.onLog('Camera animated to Tiananmen');
   }
 
   Future<void> _addMarker() async {
@@ -476,6 +556,8 @@ class _MapTabState extends State<MapTab> {
         position: _tiananmen,
         title: 'Tiananmen',
         snippet: id,
+        icon: _myLocationIcon,
+        draggable: true,
       ),
     );
     widget.onLog('Marker added: $id');
@@ -484,6 +566,93 @@ class _MapTabState extends State<MapTab> {
   Future<void> _clearMarkers() async {
     await _controller?.clearMarkers();
     widget.onLog('Markers cleared');
+  }
+
+  Future<void> _takeSnapshot() async {
+    try {
+      final bytes = await _controller?.takeSnapshot();
+      widget.onLog('Snapshot bytes: ${bytes?.length ?? 0}');
+    } catch (e) {
+      widget.onLog('Snapshot failed: $e');
+    }
+  }
+
+  Future<void> _fitBounds() async {
+    await _controller?.fitBounds(
+      const LatLngBounds(
+        southwest: GaodeCoordinate(latitude: 39.902, longitude: 116.388),
+        northeast: GaodeCoordinate(latitude: 39.918, longitude: 116.408),
+      ),
+      padding: const GaodeMapPadding(
+        left: 40,
+        top: 40,
+        right: 40,
+        bottom: 100,
+      ),
+    );
+    widget.onLog('fitBounds applied around Tiananmen');
+  }
+
+  Future<void> _addGroundOverlay() async {
+    final icon = _myLocationIcon;
+    if (icon == null) return;
+    await _controller?.addGroundOverlay(
+      GaodeMapGroundOverlay(
+        id: 'demo_ground',
+        bounds: const LatLngBounds(
+          southwest: GaodeCoordinate(latitude: 39.905, longitude: 116.392),
+          northeast: GaodeCoordinate(latitude: 39.912, longitude: 116.402),
+        ),
+        image: icon,
+        transparency: 0.25,
+      ),
+    );
+    widget.onLog('Ground overlay added');
+  }
+
+  Future<void> _addHeatmap() async {
+    await _controller?.addHeatmap(
+      GaodeMapHeatmap(
+        id: 'demo_heat',
+        points: const [
+          GaodeHeatmapWeightedPoint(
+            coordinate: GaodeCoordinate(latitude: 39.909, longitude: 116.397),
+            intensity: 2,
+          ),
+          GaodeHeatmapWeightedPoint(
+            coordinate: GaodeCoordinate(latitude: 39.911, longitude: 116.401),
+            intensity: 1.5,
+          ),
+          GaodeHeatmapWeightedPoint(
+            coordinate: GaodeCoordinate(latitude: 39.907, longitude: 116.394),
+            intensity: 1,
+          ),
+        ],
+        radius: 38,
+        opacity: 0.65,
+      ),
+    );
+    widget.onLog('Heatmap added');
+  }
+
+  Future<void> _probeOfflineMaps() async {
+    try {
+      _offlineSub ??= _offlineClient.progressStream.listen((event) {
+        widget.onLog(
+          'Offline ${event.cityName}: ${event.status} ${event.completePercent}%',
+        );
+      });
+      final cities = await _offlineClient.getCityList();
+      widget.onLog('Offline catalog: ${cities.length} entries');
+      for (final city in cities) {
+        if (city.cityCode == '110000') {
+          widget.onLog('Sample city: ${city.name} (${city.cityCode})');
+          break;
+        }
+      }
+    } catch (e) {
+      widget.onLog('Offline probe failed: $e');
+    }
   }
 
   @override
@@ -499,16 +668,32 @@ class _MapTabState extends State<MapTab> {
     return Column(
       children: [
         Expanded(
-          child: GaodeMapView(
-            options: const GaodeMapOptions(
-              initialCamera: CameraPosition(target: _tiananmen, zoom: 16),
-              myLocationEnabled: true,
-            ),
-            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-              Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new),
-            },
-            onMapCreated: _onMapCreated,
-          ),
+          child: _myLocationIcon == null
+              ? const Center(child: CircularProgressIndicator())
+              : GaodeMapView(
+                  options: GaodeMapOptions(
+                    initialCamera: const CameraPosition(
+                      target: _tiananmen,
+                      zoom: 16,
+                    ),
+                    myLocationEnabled: true,
+                    myLocationIcon: _myLocationIcon,
+                    myLocationButtonEnabled:
+                        defaultTargetPlatform == TargetPlatform.android,
+                    zoomControlsEnabled:
+                        defaultTargetPlatform == TargetPlatform.android,
+                    compassEnabled: true,
+                    scaleEnabled: true,
+                    buildingsEnabled: true,
+                  ),
+                  gestureRecognizers:
+                      <Factory<OneSequenceGestureRecognizer>>{
+                    Factory<OneSequenceGestureRecognizer>(
+                      EagerGestureRecognizer.new,
+                    ),
+                  },
+                  onMapCreated: _onMapCreated,
+                ),
         ),
         Padding(
           padding: const EdgeInsets.all(8),
@@ -521,8 +706,12 @@ class _MapTabState extends State<MapTab> {
                 child: const Text('Cycle map type'),
               ),
               FilledButton(
+                onPressed: _toggleTraffic,
+                child: Text(_trafficEnabled ? 'Traffic on' : 'Traffic off'),
+              ),
+              FilledButton(
                 onPressed: _moveToTiananmen,
-                child: const Text('Move camera'),
+                child: const Text('Animate camera'),
               ),
               FilledButton(
                 onPressed: _addMarker,
@@ -531,6 +720,26 @@ class _MapTabState extends State<MapTab> {
               OutlinedButton(
                 onPressed: _clearMarkers,
                 child: const Text('Clear markers'),
+              ),
+              OutlinedButton(
+                onPressed: _takeSnapshot,
+                child: const Text('Snapshot'),
+              ),
+              OutlinedButton(
+                onPressed: _fitBounds,
+                child: const Text('Fit bounds'),
+              ),
+              OutlinedButton(
+                onPressed: _addGroundOverlay,
+                child: const Text('Ground'),
+              ),
+              OutlinedButton(
+                onPressed: _addHeatmap,
+                child: const Text('Heatmap'),
+              ),
+              OutlinedButton(
+                onPressed: _probeOfflineMaps,
+                child: const Text('Offline list'),
               ),
             ],
           ),

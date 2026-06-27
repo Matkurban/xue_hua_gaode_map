@@ -1,3 +1,58 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+## Unreleased
+
+## 2.0.0
+
+### Added
+
+- Full Gaode 3D map Dart API: camera controls (`getCameraPosition`, `animateCamera`,
+  `fitBounds`, `setMapRegionLimits`, `zoomIn`/`zoomOut`), display toggles (traffic,
+  buildings, indoor, terrain, compass, scale, logo), markers with custom icons and drag
+  events, and overlay types (polyline, polygon, circle, arc, ground, heatmap, multi-point,
+  tile).
+- Per-view `EventChannel` map events including `GaodeMapInfoWindowTapEvent`.
+- `OfflineMapClient` for offline city catalog, download management, and progress stream.
+- Map tools: `takeSnapshot`, `toScreenLocation`, `fromScreenLocation`.
+- Example app map tab demos: traffic, animated camera, overlays, fit bounds, ground
+  overlay, heatmap, and offline catalog probe.
+
+### Fixed
+
+- Wired `GaodeMapMarker.infoWindowEnabled` and native `infoWindowTap` events on Android
+  and iOS.
+- iOS `animateCamera` bearing/tilt duration; `fitBounds` padding via
+  `setVisibleMapRect(_:edgePadding:animated:)`.
+- iOS polyline `dottedLine` via `MALineDashType`.
+- Android compile issues (`setMapStatusLimits`, logo/zoom position constants, offline map
+  `getcompleteCode()`).
+- iOS `OfflineMapHandler` and overlay APIs aligned with AMap iOS SDK.
+- Android `takeSnapshot` replying twice to Flutter.
+- Android map lifecycle registry leak on platform view dispose.
+- Android offline map progress events marshalled on the main thread.
+- Android clearing map region limits when `setMapRegionLimits(null)` is called.
+- Android heatmap `opacity` applied via tile provider transparency.
+- iOS search handlers double-replying when privacy or API key checks fail.
+- iOS geofence handlers hanging when `clientId` is missing.
+- iOS custom marker anchor offset calculation.
+- iOS offline map `pause` no longer calls `cancelAll()` when a city is not found.
+- iOS overlay `visible` / `zIndex`, tile `tileSize`, initial `regionLimits`, and offline
+  `"paused"` status wiring.
+
+### Removed
+
+- Reserved `clusterEnabled` / `setClusterEnabled` stub API (not implemented in native SDK
+  integration).
+
+### Changed
+
+- **Breaking:** Removed reserved `clusterEnabled` / `setClusterEnabled` stub API.
+- Map platform channels now return `INVALID_ARGUMENT` for invalid overlay and camera inputs
+  instead of silently succeeding.
+- iOS `cameraMove` events are emitted continuously during map movement to match Android.
+
 ## 1.0.1
 
 * iOS: fix a hard crash when calling location/geofence/search APIs without a configured API key. The plugin now reads `AMapApiKey` from `Info.plist` at startup (matching Android's manifest auto-read), and unconfigured keys surface as a catchable `API_KEY_NOT_CONFIGURED` error instead of crashing the app.

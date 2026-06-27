@@ -15,7 +15,7 @@ class GaodeMapViewFactory(
     override fun create(context: Context, viewId: Int, args: Any?): PlatformView {
         @Suppress("UNCHECKED_CAST")
         val params = args as? Map<String, Any?> ?: emptyMap()
-        val view = GaodeMapPlatformView(context, messenger, viewId, params)
+        val view = GaodeMapPlatformView(context, messenger, viewId, params, lifecycleRegistry)
         lifecycleRegistry.register(view)
         return view
     }

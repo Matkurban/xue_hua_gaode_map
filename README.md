@@ -33,7 +33,7 @@ single, consistent Dart API for both Android and iOS.
 | Core | `GaodeSdk` | Privacy compliance, API key, reverse-geocode language, Android country code |
 | Location | `LocationClient` | Single-shot location, continuous location stream, reverse geocoding |
 | Geofencing | `GeofenceClient` | Circle / polygon / POI / district fences plus an event stream |
-| Map | `GaodeMapView` / `GaodeMapController` | Native map `PlatformView`: map type, my-location dot, gesture toggles, camera moves, markers |
+| Map | `GaodeMapView` / `GaodeMapController` | Native 3D map: layers, camera, markers, overlays, events, snapshot, offline maps |
 | Search | `SearchClient` | POI keyword search, POI around search, input tips (autocomplete), forward geocoding (address → coordinate) |
 
 ## SDK versions
@@ -404,7 +404,7 @@ triggers continue to fire while the app is backgrounded.
 
 ## Feature: Map
 
-`GaodeMapView` embeds a native Gaode map as a `PlatformView`. **Privacy compliance must be
+`GaodeMapView` embeds a native Gaode 3D map as a `PlatformView`. **Privacy compliance must be
 configured before the widget mounts.** The view is supported on Android and iOS only.
 
 ### `GaodeMapView`
@@ -420,70 +420,141 @@ GaodeMapView(
     ),
     mapType: GaodeMapType.normal,
     myLocationEnabled: true,
+    trafficEnabled: false,
+    buildingsEnabled: true,
   ),
-  onMapCreated: (c) => controller = c,
+  onMapCreated: (c) {
+    controller = c;
+    c.events.listen((event) {
+      if (event is GaodeMapTapEvent) {
+        print('tapped ${event.coordinate}');
+      }
+    });
+  },
 );
 ```
-
-Constructor parameters:
-
-- `options` — initial `GaodeMapOptions` (below).
-- `onMapCreated` — callback delivering the `GaodeMapController` once the platform view
-  exists.
-- `gestureRecognizers` — gesture recognizers that should compete with the platform view
-  (useful when the map sits inside a scrollable).
 
 ### `GaodeMapOptions`
 
 | Field | Default | Effect |
 |-------|---------|--------|
-| `initialCamera` | Beijing | Starting `CameraPosition` |
-| `mapType` | `GaodeMapType.normal` | Visual style |
-| `myLocationEnabled` | `false` | Show the blue "my location" dot (needs location permission) |
-| `zoomGesturesEnabled` | `true` | Allow pinch-zoom |
-| `scrollGesturesEnabled` | `true` | Allow pan |
-| `rotateGesturesEnabled` | `true` | Allow rotation |
-| `tiltGesturesEnabled` | `true` | Allow tilt |
-
-- **`GaodeMapType`** — `normal` (daytime vector), `satellite` (imagery), `night`
-  (night-styled vector).
-- **`CameraPosition({required target, zoom = 16})`** — `target` is the center
-  coordinate; `zoom` ranges roughly from 3 (world) to 19 (street).
+| `initialCamera` | Beijing | Starting `CameraPosition` (target, zoom, bearing, tilt) |
+| `mapType` | `normal` | `normal`, `satellite`, `night`, `navi`, `bus` (bus: Android only) |
+| `myLocationEnabled` | `false` | Show the my-location dot |
+| `myLocationIcon` | `null` | Custom PNG icon for the my-location dot |
+| `myLocationButtonEnabled` | `false` | Native locate button (**Android only**) |
+| `zoomControlsEnabled` | `false` | Native +/- buttons (**Android only**) |
+| `zoomControlsPosition` | `rightBottom` | Zoom button preset position (**Android only**) |
+| `zoomGesturesEnabled` | `true` | Pinch zoom |
+| `scrollGesturesEnabled` | `true` | Pan |
+| `rotateGesturesEnabled` | `true` | Rotation |
+| `tiltGesturesEnabled` | `true` | Tilt |
+| `trafficEnabled` | `false` | Real-time traffic layer |
+| `buildingsEnabled` | `true` | 3D buildings |
+| `mapTextEnabled` | `true` | Map labels |
+| `indoorEnabled` | `false` | Indoor maps |
+| `terrainEnabled` | `false` | 3D terrain (**Android only**; set before MapView creation) |
+| `compassEnabled` | `true` | Compass widget |
+| `scaleEnabled` | `true` | Scale bar |
+| `logoPosition` | `leftBottom` | Logo watermark position |
+| `minZoom` / `maxZoom` | `null` | Zoom level limits |
+| `regionLimits` | `null` | Geographic bounds the map cannot pan outside |
 
 ### `GaodeMapController`
 
-Obtained from `onMapCreated`. All methods return a `Future`.
+Obtained from `onMapCreated`. Commands return `Future`; events are available via `events`.
+
+**Camera**
 
 | Method | Effect |
 |--------|--------|
-| `moveCamera(CameraPosition)` | Recenter / re-zoom the camera |
-| `setMapType(GaodeMapType)` | Switch visual style |
-| `setMyLocationEnabled(bool)` | Toggle the blue location dot |
-| `addMarker(GaodeMapMarker)` | Add or replace (by `id`) a marker |
-| `removeMarker(String id)` | Remove a marker by id |
-| `clearMarkers()` | Remove all markers |
+| `getCameraPosition()` | Read current camera (target, zoom, bearing, tilt) |
+| `moveCamera(position, {animated})` | Jump or animate camera |
+| `animateCamera(position, {durationMs})` | Animated camera move |
+| `fitBounds(bounds, padding, {animated})` | Fit geographic bounds |
+| `setMapRegionLimits(bounds?)` | Restrict pannable region |
+| `zoomIn()` / `zoomOut()` | Step zoom level |
+
+**Display**
+
+| Method | Effect |
+|--------|--------|
+| `setMapType` | Switch visual style |
+| `setTrafficEnabled` | Toggle traffic layer |
+| `setBuildingsEnabled` | Toggle 3D buildings |
+| `setMapTextEnabled` | Toggle map labels |
+| `setIndoorEnabled` | Toggle indoor maps |
+| `setCompassEnabled` / `setScaleEnabled` | Toggle UI widgets |
+| `setLogoPosition` | Move logo watermark |
+| `setMinMaxZoom` | Set zoom limits |
+| `setMyLocationEnabled` / `setMyLocationIcon` | Location dot |
+| `setMyLocationButtonEnabled` | Locate button (Android only) |
+| `setZoomControlsEnabled` / `setZoomControlsPosition` | Zoom buttons (Android only) |
+
+**Markers**
+
+| Method | Effect |
+|--------|--------|
+| `addMarker(GaodeMapMarker)` | Add or replace marker by `id` |
+| `removeMarker(id)` / `clearMarkers()` | Remove markers |
+| `showInfoWindow(id)` / `hideInfoWindow(id)` | Control callout |
+
+`GaodeMapMarker` supports `icon` (`GaodeMapImage`), `rotation`, `alpha`, `draggable`,
+`visible`, `flat`, `zIndex`, `infoWindowEnabled`, plus `title` / `snippet`.
+
+**Overlays**
+
+| Type | add / remove / clear |
+|------|---------------------|
+| `GaodeMapPolyline` | `addPolyline` / `removePolyline` / `clearPolylines` |
+| `GaodeMapPolygon` | `addPolygon` / `removePolygon` / `clearPolygons` |
+| `GaodeMapCircle` | `addCircle` / `removeCircle` / `clearCircles` |
+| `GaodeMapArc` | `addArc` / `removeArc` / `clearArcs` |
+| `GaodeMapGroundOverlay` | `addGroundOverlay` / `removeGroundOverlay` / `clearGroundOverlays` |
+| `GaodeMapHeatmap` | `addHeatmap` / `removeHeatmap` / `clearHeatmaps` |
+| `GaodeMapMultiPoint` | `addMultiPoint` / `removeMultiPoint` / `clearMultiPoints` |
+| `GaodeMapTileOverlay` | `addTileOverlay` / `removeTileOverlay` / `clearTileOverlays` |
+
+`clearOverlays()` removes every overlay type at once. Colors are Flutter-style ARGB ints
+(e.g. `0xFF2196F3`). Tile overlays use URL templates with `{x}`, `{y}`, `{z}` placeholders.
+
+**Tools**
+
+| Method | Effect |
+|--------|--------|
+| `takeSnapshot()` | PNG screenshot bytes |
+| `toScreenLocation(coordinate)` | Lat/lng → screen point |
+| `fromScreenLocation(point)` | Screen point → lat/lng |
+
+**Events** (`controller.events`)
+
+`GaodeMapTapEvent`, `GaodeMapLongPressEvent`, `GaodeMapCameraMoveStartEvent`,
+`GaodeMapCameraMoveEvent`, `GaodeMapCameraMoveEndEvent`, `GaodeMapMarkerTapEvent`,
+`GaodeMapMarkerDragEvent`, `GaodeMapInfoWindowTapEvent`.
+
+### Offline maps: `OfflineMapClient`
 
 ```dart
-await controller?.moveCamera(
-  const CameraPosition(
-    target: GaodeCoordinate(latitude: 39.9, longitude: 116.4),
-    zoom: 17,
-  ),
-);
-await controller?.setMapType(GaodeMapType.satellite);
-await controller?.addMarker(
-  const GaodeMapMarker(
-    id: 'm1',
-    position: GaodeCoordinate(latitude: 39.9, longitude: 116.4),
-    title: 'Tiananmen',
-    snippet: 'Beijing',
-  ),
-);
+final offline = OfflineMapClient();
+await offline.setStoragePath('/path/to/offline'); // Android only
+
+offline.progressStream.listen((e) {
+  print('${e.cityName}: ${e.status} ${e.completePercent}%');
+});
+
+final cities = await offline.getCityList();
+await offline.downloadByCityCode('110000');
 ```
 
-- **`GaodeMapMarker({required id, required position, title, snippet})`** — `id` is unique
-  (re-adding the same id replaces the marker); `title` / `snippet` populate the info window
-  shown when the marker is tapped.
+| Method | Description |
+|--------|-------------|
+| `setStoragePath` | Android offline storage directory |
+| `getCityList()` | Downloadable city catalog |
+| `downloadByCityCode` / `downloadByCityName` | Start download |
+| `pause` / `resume` / `remove` | Manage tasks |
+| `getDownloadStatus(cityCode)` | Query status |
+| `progressStream` | Download progress events |
+| `dispose()` | Release native resources |
 
 ## Feature: Search
 
@@ -561,6 +632,15 @@ calls throw a `StateError`.
 | `GaodeSdk.updateCountryCode` | Supported | No-op |
 | `LocationClient.reverseGeocode` | `getReGeoLocation` | AMapSearch coordinate-based reverse geocode |
 | `GeofenceClient.setActiveActions(allowsBackgroundLocationUpdates:)` | Ignored | Controls background fence monitoring |
+| `GaodeMapOptions.myLocationIcon` | Supported | Supported |
+| `GaodeMapOptions.myLocationButtonEnabled` | Native locate button | Not available (no-op) |
+| `GaodeMapOptions.zoomControlsEnabled` / `zoomControlsPosition` | Native +/- buttons (preset positions only) | Not available (no-op) |
+| `GaodeMapOptions.terrainEnabled` | Supported (before MapView creation) | Not available |
+| `GaodeMapType.bus` | Supported | Falls back to standard |
+| `OfflineMapClient.setStoragePath` | Required for Android offline storage | No-op |
+
+Native SDKs do **not** support custom icons or arbitrary positions for the locate / zoom
+buttons. Only the my-location **dot** and **markers** can use custom PNG icons via `GaodeMapImage`.
 
 ## Reference docs
 
@@ -568,6 +648,9 @@ calls throw a `StateError`.
 - [iOS: permission configuration](https://lbs.amap.com/api/ios-location-sdk/guide/create-project/permission-description)
 - [Android: local geofencing](https://lbs.amap.com/api/android-location-sdk/guide/additional-func/local-geofence)
 - [Android: show a map](https://lbs.amap.com/api/android-sdk/guide/create-map/show-map)
+- [Android: my-location dot](https://lbs.amap.com/api/android-sdk/guide/create-map/mylocation)
+- [iOS: my-location dot](https://lbs.amap.com/api/ios-sdk/guide/create-map/location-map)
+- [Android: map controls](https://lbs.amap.com/api/android-sdk/guide/interaction-with-map/control-interaction)
 - [iOS: show a map](https://lbs.amap.com/api/ios-sdk/guide/create-map/show-map)
 - [Android: POI data](https://lbs.amap.com/api/android-sdk/guide/map-data/poi)
 - [Gaode compliance guide](https://lbs.amap.com/compliance-center/check-and-reference/sdkhgsy)

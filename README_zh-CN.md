@@ -389,7 +389,7 @@ await geofence.dispose();
 
 ## 功能：地图
 
-`GaodeMapView` 以 `PlatformView` 形式嵌入原生高德地图。**挂载前必须先完成隐私合规配置。**
+`GaodeMapView` 以 `PlatformView` 形式嵌入原生高德 3D 地图。**挂载前必须先完成隐私合规配置。**
 该视图仅支持 Android 与 iOS。
 
 ### `GaodeMapView`
@@ -405,68 +405,141 @@ GaodeMapView(
     ),
     mapType: GaodeMapType.normal,
     myLocationEnabled: true,
+    trafficEnabled: false,
+    buildingsEnabled: true,
   ),
-  onMapCreated: (c) => controller = c,
+  onMapCreated: (c) {
+    controller = c;
+    c.events.listen((event) {
+      if (event is GaodeMapTapEvent) {
+        print('tapped ${event.coordinate}');
+      }
+    });
+  },
 );
 ```
-
-构造参数：
-
-- `options` —— 初始 `GaodeMapOptions`（见下）。
-- `onMapCreated` —— 平台视图创建完成后回调，返回 `GaodeMapController`。
-- `gestureRecognizers` —— 需要与平台视图争夺手势的识别器（地图位于可滚动组件内时有用）。
 
 ### `GaodeMapOptions`
 
 | 字段 | 默认值 | 效果 |
 |------|--------|------|
-| `initialCamera` | 北京 | 初始 `CameraPosition` |
-| `mapType` | `GaodeMapType.normal` | 视觉样式 |
-| `myLocationEnabled` | `false` | 显示定位蓝点（需定位权限） |
-| `zoomGesturesEnabled` | `true` | 允许双指缩放 |
-| `scrollGesturesEnabled` | `true` | 允许拖动 |
-| `rotateGesturesEnabled` | `true` | 允许旋转 |
-| `tiltGesturesEnabled` | `true` | 允许俯仰 |
-
-- **`GaodeMapType`** —— `normal`（白天矢量）、`satellite`（卫星影像）、`night`
-  （夜间矢量）。
-- **`CameraPosition({required target, zoom = 16})`** —— `target` 为中心坐标；`zoom`
-  大致取值 3（世界）至 19（街道）。
+| `initialCamera` | 北京 | 初始 `CameraPosition`（中心、缩放、方位角、俯仰角） |
+| `mapType` | `normal` | `normal`、`satellite`、`night`、`navi`、`bus`（`bus` 仅 Android） |
+| `myLocationEnabled` | `false` | 显示定位蓝点 |
+| `myLocationIcon` | `null` | 自定义我的位置 PNG 图标 |
+| `myLocationButtonEnabled` | `false` | 原生定位按钮（**仅 Android**） |
+| `zoomControlsEnabled` | `false` | 原生 +/- 缩放按钮（**仅 Android**） |
+| `zoomControlsPosition` | `rightBottom` | 缩放按钮预设位置（**仅 Android**） |
+| `zoomGesturesEnabled` | `true` | 双指缩放 |
+| `scrollGesturesEnabled` | `true` | 拖动 |
+| `rotateGesturesEnabled` | `true` | 旋转 |
+| `tiltGesturesEnabled` | `true` | 俯仰 |
+| `trafficEnabled` | `false` | 实时路况图层 |
+| `buildingsEnabled` | `true` | 3D 楼块 |
+| `mapTextEnabled` | `true` | 地图标注 |
+| `indoorEnabled` | `false` | 室内地图 |
+| `terrainEnabled` | `false` | 3D 地形（**仅 Android**；须在 MapView 创建前设置） |
+| `compassEnabled` | `true` | 指南针 |
+| `scaleEnabled` | `true` | 比例尺 |
+| `logoPosition` | `leftBottom` | Logo 水印位置 |
+| `minZoom` / `maxZoom` | `null` | 缩放级别限制 |
+| `regionLimits` | `null` | 地图不可拖出该地理范围 |
 
 ### `GaodeMapController`
 
-由 `onMapCreated` 获取，所有方法返回 `Future`。
+由 `onMapCreated` 获取。命令方法返回 `Future`；事件通过 `events` 流接收。
+
+**相机**
 
 | 方法 | 效果 |
 |------|------|
-| `moveCamera(CameraPosition)` | 重新定位 / 缩放相机 |
-| `setMapType(GaodeMapType)` | 切换视觉样式 |
-| `setMyLocationEnabled(bool)` | 切换定位蓝点 |
-| `addMarker(GaodeMapMarker)` | 添加或按 `id` 替换 Marker |
-| `removeMarker(String id)` | 按 id 移除 Marker |
-| `clearMarkers()` | 移除全部 Marker |
+| `getCameraPosition()` | 读取当前相机（中心、缩放、方位角、俯仰角） |
+| `moveCamera(position, {animated})` | 跳转或动画移动相机 |
+| `animateCamera(position, {durationMs})` | 带动画时长的相机移动 |
+| `fitBounds(bounds, padding, {animated})` | 将地理范围适配到视口 |
+| `setMapRegionLimits(bounds?)` | 限制可拖动区域 |
+| `zoomIn()` / `zoomOut()` | 缩放一级 |
+
+**显示**
+
+| 方法 | 效果 |
+|------|------|
+| `setMapType` | 切换视觉样式 |
+| `setTrafficEnabled` | 路况图层开关 |
+| `setBuildingsEnabled` | 3D 楼块开关 |
+| `setMapTextEnabled` | 地图标注开关 |
+| `setIndoorEnabled` | 室内地图开关 |
+| `setCompassEnabled` / `setScaleEnabled` | UI 控件开关 |
+| `setLogoPosition` | 移动 Logo 水印 |
+| `setMinMaxZoom` | 设置缩放限制 |
+| `setMyLocationEnabled` / `setMyLocationIcon` | 定位蓝点 |
+| `setMyLocationButtonEnabled` | 定位按钮（仅 Android） |
+| `setZoomControlsEnabled` / `setZoomControlsPosition` | 缩放按钮（仅 Android） |
+
+**Marker**
+
+| 方法 | 效果 |
+|------|------|
+| `addMarker(GaodeMapMarker)` | 按 `id` 添加或替换 Marker |
+| `removeMarker(id)` / `clearMarkers()` | 移除 Marker |
+| `showInfoWindow(id)` / `hideInfoWindow(id)` | 控制信息窗 |
+
+`GaodeMapMarker` 支持 `icon`（`GaodeMapImage`）、`rotation`、`alpha`、`draggable`、
+`visible`、`flat`、`zIndex`、`infoWindowEnabled`，以及 `title` / `snippet`。
+
+**覆盖物**
+
+| 类型 | 添加 / 移除 / 清空 |
+|------|-------------------|
+| `GaodeMapPolyline` | `addPolyline` / `removePolyline` / `clearPolylines` |
+| `GaodeMapPolygon` | `addPolygon` / `removePolygon` / `clearPolygons` |
+| `GaodeMapCircle` | `addCircle` / `removeCircle` / `clearCircles` |
+| `GaodeMapArc` | `addArc` / `removeArc` / `clearArcs` |
+| `GaodeMapGroundOverlay` | `addGroundOverlay` / `removeGroundOverlay` / `clearGroundOverlays` |
+| `GaodeMapHeatmap` | `addHeatmap` / `removeHeatmap` / `clearHeatmaps` |
+| `GaodeMapMultiPoint` | `addMultiPoint` / `removeMultiPoint` / `clearMultiPoints` |
+| `GaodeMapTileOverlay` | `addTileOverlay` / `removeTileOverlay` / `clearTileOverlays` |
+
+`clearOverlays()` 一次性移除所有覆盖物。颜色为 Flutter 风格 ARGB 整型（如 `0xFF2196F3`）。
+瓦片图层 URL 模板支持 `{x}`、`{y}`、`{z}` 占位符。
+
+**工具**
+
+| 方法 | 效果 |
+|------|------|
+| `takeSnapshot()` | PNG 截图字节 |
+| `toScreenLocation(coordinate)` | 经纬度 → 屏幕坐标 |
+| `fromScreenLocation(point)` | 屏幕坐标 → 经纬度 |
+
+**事件**（`controller.events`）
+
+`GaodeMapTapEvent`、`GaodeMapLongPressEvent`、`GaodeMapCameraMoveStartEvent`、
+`GaodeMapCameraMoveEvent`、`GaodeMapCameraMoveEndEvent`、`GaodeMapMarkerTapEvent`、
+`GaodeMapMarkerDragEvent`、`GaodeMapInfoWindowTapEvent`。
+
+### 离线地图：`OfflineMapClient`
 
 ```dart
-await controller?.moveCamera(
-  const CameraPosition(
-    target: GaodeCoordinate(latitude: 39.9, longitude: 116.4),
-    zoom: 17,
-  ),
-);
-await controller?.setMapType(GaodeMapType.satellite);
-await controller?.addMarker(
-  const GaodeMapMarker(
-    id: 'm1',
-    position: GaodeCoordinate(latitude: 39.9, longitude: 116.4),
-    title: '天安门',
-    snippet: '北京',
-  ),
-);
+final offline = OfflineMapClient();
+await offline.setStoragePath('/path/to/offline'); // 仅 Android
+
+offline.progressStream.listen((e) {
+  print('${e.cityName}: ${e.status} ${e.completePercent}%');
+});
+
+final cities = await offline.getCityList();
+await offline.downloadByCityCode('110000');
 ```
 
-- **`GaodeMapMarker({required id, required position, title, snippet})`** —— `id` 唯一
-  （用相同 id 再次添加会替换 Marker）；`title` / `snippet` 用于点击 Marker 时弹出的
-  信息窗。
+| 方法 | 说明 |
+|------|------|
+| `setStoragePath` | Android 离线数据存储目录 |
+| `getCityList()` | 可下载城市列表 |
+| `downloadByCityCode` / `downloadByCityName` | 开始下载 |
+| `pause` / `resume` / `remove` | 管理任务 |
+| `getDownloadStatus(cityCode)` | 查询状态 |
+| `progressStream` | 下载进度事件流 |
+| `dispose()` | 释放原生资源 |
 
 ## 功能：搜索
 
@@ -542,6 +615,15 @@ try {
 | `GaodeSdk.updateCountryCode` | 支持 | 空操作 |
 | `LocationClient.reverseGeocode` | `getReGeoLocation` | AMapSearch 坐标逆地理 |
 | `GeofenceClient.setActiveActions(allowsBackgroundLocationUpdates:)` | 忽略 | 控制后台围栏监测 |
+| `GaodeMapOptions.myLocationIcon` | 支持 | 支持 |
+| `GaodeMapOptions.myLocationButtonEnabled` | 原生定位按钮 | 无（空操作） |
+| `GaodeMapOptions.zoomControlsEnabled` / `zoomControlsPosition` | 原生 +/- 按钮（仅预设位置） | 无（空操作） |
+| `GaodeMapOptions.terrainEnabled` | 支持（MapView 创建前） | 无 |
+| `GaodeMapType.bus` | 支持 | 回退为标准地图 |
+| `OfflineMapClient.setStoragePath` | Android 离线存储目录 | 空操作 |
+
+高德原生 SDK **不支持**为定位按钮 / 缩放按钮自定义图标或任意屏幕位置；仅我的位置**点**
+可通过 `GaodeMapImage` 自定义图标。
 
 ## 参考文档
 
@@ -549,6 +631,9 @@ try {
 - [iOS 权限配置](https://lbs.amap.com/api/ios-location-sdk/guide/create-project/permission-description)
 - [Android 地理围栏](https://lbs.amap.com/api/android-location-sdk/guide/additional-func/local-geofence)
 - [Android 显示地图](https://lbs.amap.com/api/android-sdk/guide/create-map/show-map)
+- [Android 定位蓝点](https://lbs.amap.com/api/android-sdk/guide/create-map/mylocation)
+- [iOS 定位蓝点](https://lbs.amap.com/api/ios-sdk/guide/create-map/location-map)
+- [Android 控件交互](https://lbs.amap.com/api/android-sdk/guide/interaction-with-map/control-interaction)
 - [iOS 显示地图](https://lbs.amap.com/api/ios-sdk/guide/create-map/show-map)
 - [Android 获取 POI 数据](https://lbs.amap.com/api/android-sdk/guide/map-data/poi)
 - [高德合规方案](https://lbs.amap.com/compliance-center/check-and-reference/sdkhgsy)

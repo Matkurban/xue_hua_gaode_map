@@ -3,6 +3,7 @@ import UIKit
 
 public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     private let searchClientManager = SearchClientManager()
+    private let offlineMapHandler = OfflineMapHandler()
     
     public static func register(with registrar: FlutterPluginRegistrar) {
         AmapCoreHandler.applyApiKeyFromBundleIfAvailable()
@@ -21,6 +22,12 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
             binaryMessenger: registrar.messenger()
         )
         geofenceEvents.setStreamHandler(GeofenceStreamHandler())
+        
+        let offlineMapEvents = FlutterEventChannel(
+            name: "xue_hua_gaode_map/offline_map",
+            binaryMessenger: registrar.messenger()
+        )
+        offlineMapEvents.setStreamHandler(OfflineMapStreamHandler(handler: instance.offlineMapHandler))
         
         let mapFactory = GaodeMapViewFactory(messenger: registrar.messenger())
         registrar.register(mapFactory, withId: "xue_hua_gaode_map/map")
@@ -100,14 +107,58 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
             handleSearchInputTips(call, result: result)
         case "search#geocode":
             handleSearchGeocode(call, result: result)
+        case "offlineMap#setStoragePath":
+            result(nil)
+        case "offlineMap#getCityList":
+            offlineMapHandler.getCityList(result: result)
+        case "offlineMap#downloadByCityCode":
+            if let cityCode = (call.arguments as? [String: Any])?["cityCode"] as? String {
+                offlineMapHandler.downloadByCityCode(cityCode, result: result)
+            } else {
+                result(FlutterError(code: "INVALID_ARGUMENT", message: "cityCode required", details: nil))
+            }
+        case "offlineMap#downloadByCityName":
+            if let cityName = (call.arguments as? [String: Any])?["cityName"] as? String {
+                offlineMapHandler.downloadByCityName(cityName, result: result)
+            } else {
+                result(FlutterError(code: "INVALID_ARGUMENT", message: "cityName required", details: nil))
+            }
+        case "offlineMap#pause":
+            if let cityCode = (call.arguments as? [String: Any])?["cityCode"] as? String {
+                offlineMapHandler.pause(cityCode: cityCode, result: result)
+            } else {
+                result(FlutterError(code: "INVALID_ARGUMENT", message: "cityCode required", details: nil))
+            }
+        case "offlineMap#resume":
+            if let cityCode = (call.arguments as? [String: Any])?["cityCode"] as? String {
+                offlineMapHandler.resume(cityCode: cityCode, result: result)
+            } else {
+                result(FlutterError(code: "INVALID_ARGUMENT", message: "cityCode required", details: nil))
+            }
+        case "offlineMap#remove":
+            if let cityCode = (call.arguments as? [String: Any])?["cityCode"] as? String {
+                offlineMapHandler.remove(cityCode: cityCode, result: result)
+            } else {
+                result(FlutterError(code: "INVALID_ARGUMENT", message: "cityCode required", details: nil))
+            }
+        case "offlineMap#getDownloadStatus":
+            if let cityCode = (call.arguments as? [String: Any])?["cityCode"] as? String {
+                offlineMapHandler.getDownloadStatus(cityCode: cityCode, result: result)
+            } else {
+                result(FlutterError(code: "INVALID_ARGUMENT", message: "cityCode required", details: nil))
+            }
+        case "offlineMap#destroy":
+            offlineMapHandler.destroy()
+            result(nil)
         default:
             result(FlutterMethodNotImplemented)
         }
     }
     
     private func handleSearchPoiKeyword(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result), requireApiKey(result: result),
-              let args = call.arguments as? [String: Any],
+        guard requirePrivacy(result: result) else { return }
+        guard requireApiKey(result: result) else { return }
+        guard let args = call.arguments as? [String: Any],
               let keyword = args["keyword"] as? String else {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "keyword required", details: nil))
             return
@@ -123,8 +174,9 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleSearchPoiAround(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result), requireApiKey(result: result),
-              let args = call.arguments as? [String: Any],
+        guard requirePrivacy(result: result) else { return }
+        guard requireApiKey(result: result) else { return }
+        guard let args = call.arguments as? [String: Any],
               let latitude = args["latitude"] as? Double,
               let longitude = args["longitude"] as? Double else {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "latitude and longitude required", details: nil))
@@ -143,8 +195,9 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleSearchInputTips(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result), requireApiKey(result: result),
-              let args = call.arguments as? [String: Any],
+        guard requirePrivacy(result: result) else { return }
+        guard requireApiKey(result: result) else { return }
+        guard let args = call.arguments as? [String: Any],
               let keyword = args["keyword"] as? String else {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "keyword required", details: nil))
             return
@@ -157,8 +210,9 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleSearchGeocode(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result), requireApiKey(result: result),
-              let args = call.arguments as? [String: Any],
+        guard requirePrivacy(result: result) else { return }
+        guard requireApiKey(result: result) else { return }
+        guard let args = call.arguments as? [String: Any],
               let address = args["address"] as? String else {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "address required", details: nil))
             return
@@ -254,8 +308,12 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleGeofenceSetActiveActions(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result), requireApiKey(result: result),
-              let clientId = clientId(from: call) else { return }
+        guard requirePrivacy(result: result) else { return }
+        guard requireApiKey(result: result) else { return }
+        guard let clientId = clientId(from: call) else {
+            result(FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil))
+            return
+        }
         let actions = (call.arguments as? [String: Any])?["actions"] as? [String] ?? ["enter"]
         let allowsBackground =
         (call.arguments as? [String: Any])?["allowsBackgroundLocationUpdates"] as? Bool ?? false
@@ -265,8 +323,9 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleGeofenceAddCircle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result), requireApiKey(result: result),
-              let clientId = clientId(from: call),
+        guard requirePrivacy(result: result) else { return }
+        guard requireApiKey(result: result) else { return }
+        guard let clientId = clientId(from: call),
               let args = call.arguments as? [String: Any],
               let latitude = args["latitude"] as? Double,
               let longitude = args["longitude"] as? Double,
@@ -281,8 +340,9 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleGeofenceAddPolygon(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result), requireApiKey(result: result),
-              let clientId = clientId(from: call),
+        guard requirePrivacy(result: result) else { return }
+        guard requireApiKey(result: result) else { return }
+        guard let clientId = clientId(from: call),
               let args = call.arguments as? [String: Any],
               let points = args["points"] as? [[String: Any]],
               let customId = args["customId"] as? String else {
@@ -299,8 +359,9 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleGeofenceAddPoiKeyword(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result), requireApiKey(result: result),
-              let clientId = clientId(from: call),
+        guard requirePrivacy(result: result) else { return }
+        guard requireApiKey(result: result) else { return }
+        guard let clientId = clientId(from: call),
               let args = call.arguments as? [String: Any],
               let keyword = args["keyword"] as? String,
               let customId = args["customId"] as? String else {
@@ -316,8 +377,9 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleGeofenceAddPoiAround(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result), requireApiKey(result: result),
-              let clientId = clientId(from: call),
+        guard requirePrivacy(result: result) else { return }
+        guard requireApiKey(result: result) else { return }
+        guard let clientId = clientId(from: call),
               let args = call.arguments as? [String: Any],
               let keyword = args["keyword"] as? String,
               let latitude = args["latitude"] as? Double,
@@ -342,8 +404,9 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleGeofenceAddDistrict(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result), requireApiKey(result: result),
-              let clientId = clientId(from: call),
+        guard requirePrivacy(result: result) else { return }
+        guard requireApiKey(result: result) else { return }
+        guard let clientId = clientId(from: call),
               let args = call.arguments as? [String: Any],
               let keyword = args["keyword"] as? String,
               let customId = args["customId"] as? String else {
@@ -355,30 +418,42 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
     }
     
     private func handleGeofenceRemove(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result),
-              let clientId = clientId(from: call) else { return }
+        guard requirePrivacy(result: result) else { return }
+        guard let clientId = clientId(from: call) else {
+            result(FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil))
+            return
+        }
         let customId = (call.arguments as? [String: Any])?["customId"] as? String
         GeofenceClientRegistry.shared.getOrCreate(clientId: clientId).remove(customId: customId)
         result(nil)
     }
     
     private func handleGeofenceRemoveAll(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result),
-              let clientId = clientId(from: call) else { return }
+        guard requirePrivacy(result: result) else { return }
+        guard let clientId = clientId(from: call) else {
+            result(FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil))
+            return
+        }
         GeofenceClientRegistry.shared.getOrCreate(clientId: clientId).removeAll()
         result(nil)
     }
     
     private func handleGeofencePause(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result),
-              let clientId = clientId(from: call) else { return }
+        guard requirePrivacy(result: result) else { return }
+        guard let clientId = clientId(from: call) else {
+            result(FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil))
+            return
+        }
         GeofenceClientRegistry.shared.getOrCreate(clientId: clientId).pause()
         result(nil)
     }
     
     private func handleGeofenceResume(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        guard requirePrivacy(result: result),
-              let clientId = clientId(from: call) else { return }
+        guard requirePrivacy(result: result) else { return }
+        guard let clientId = clientId(from: call) else {
+            result(FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil))
+            return
+        }
         GeofenceClientRegistry.shared.getOrCreate(clientId: clientId).resume()
         result(nil)
     }
@@ -417,6 +492,24 @@ private final class GeofenceStreamHandler: NSObject, FlutterStreamHandler {
     func onCancel(withArguments arguments: Any?) -> FlutterError? {
         guard let clientId = arguments as? String else { return nil }
         GeofenceClientRegistry.shared.get(clientId: clientId)?.setEventSink(nil)
+        return nil
+    }
+}
+
+private final class OfflineMapStreamHandler: NSObject, FlutterStreamHandler {
+    private let handler: OfflineMapHandler
+    
+    init(handler: OfflineMapHandler) {
+        self.handler = handler
+    }
+    
+    func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+        handler.setEventSink(events)
+        return nil
+    }
+    
+    func onCancel(withArguments arguments: Any?) -> FlutterError? {
+        handler.setEventSink(nil)
         return nil
     }
 }

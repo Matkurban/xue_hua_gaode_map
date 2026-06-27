@@ -186,6 +186,64 @@ void main() {
     expect(result.geocodes.first.level, '兴趣点');
   });
 
+  test('CameraPosition round trip with bearing and tilt', () {
+    const camera = CameraPosition(
+      target: GaodeCoordinate(latitude: 39.9, longitude: 116.4),
+      zoom: 17,
+      bearing: 45,
+      tilt: 30,
+    );
+    final restored = CameraPosition.fromMap(camera.toMap());
+    expect(restored.zoom, 17);
+    expect(restored.bearing, 45);
+    expect(restored.tilt, 30);
+  });
+
+  test('GaodeMapEvent.fromMap parses tap event', () {
+    final event = GaodeMapEvent.fromMap({
+      'type': 'tap',
+      'coordinate': {'latitude': 39.9, 'longitude': 116.4},
+    });
+    expect(event, isA<GaodeMapTapEvent>());
+    expect((event as GaodeMapTapEvent).coordinate.latitude, 39.9);
+  });
+
+  test('LatLngBounds round trip', () {
+    const bounds = LatLngBounds(
+      southwest: GaodeCoordinate(latitude: 39.8, longitude: 116.3),
+      northeast: GaodeCoordinate(latitude: 40.0, longitude: 116.5),
+    );
+    final restored = LatLngBounds.fromMap(bounds.toMap());
+    expect(restored.southwest.latitude, 39.8);
+    expect(restored.northeast.longitude, 116.5);
+  });
+
+  test('GaodeMapPolyline.toMap serializes points', () {
+    const polyline = GaodeMapPolyline(
+      id: 'line1',
+      points: [
+        GaodeCoordinate(latitude: 39.9, longitude: 116.4),
+        GaodeCoordinate(latitude: 40.0, longitude: 116.5),
+      ],
+      color: 0xFF0000FF,
+    );
+    final map = polyline.toMap();
+    expect(map['id'], 'line1');
+    expect((map['points'] as List).length, 2);
+  });
+
+  test('OfflineMapCity.fromMap parses status', () {
+    final city = OfflineMapCity.fromMap({
+      'name': '北京市',
+      'cityCode': '110000',
+      'status': 'downloading',
+      'completePercent': 42,
+    });
+    expect(city.name, '北京市');
+    expect(city.status, OfflineMapDownloadStatus.downloading);
+    expect(city.completePercent, 42);
+  });
+
   test('CameraPosition round trip', () {
     const camera = CameraPosition(
       target: GaodeCoordinate(latitude: 39.9, longitude: 116.4),
@@ -201,11 +259,22 @@ void main() {
       id: 'm1',
       position: GaodeCoordinate(latitude: 39.9, longitude: 116.4),
       title: 'Tiananmen',
+      infoWindowEnabled: false,
     );
     final map = marker.toMap();
     expect(map['id'], 'm1');
     expect((map['position'] as Map)['latitude'], 39.9);
     expect(map['title'], 'Tiananmen');
+    expect(map['infoWindowEnabled'], false);
+  });
+
+  test('GaodeMapEvent.fromMap parses infoWindowTap', () {
+    final event = GaodeMapEvent.fromMap({
+      'type': 'infoWindowTap',
+      'id': 'marker_1',
+    });
+    expect(event, isA<GaodeMapInfoWindowTapEvent>());
+    expect((event as GaodeMapInfoWindowTapEvent).id, 'marker_1');
   });
 
   test('GaodeMapOptions.toMap serializes map type wire value', () {
@@ -328,5 +397,159 @@ void main() {
     );
     expect(() => search.inputTips(keyword: ''), throwsA(isA<GaodeException>()));
     expect(() => search.geocode(address: ''), throwsA(isA<GaodeException>()));
+  });
+
+  test('GaodeMapEvent.fromMap parses camera and marker drag events', () {
+    final move = GaodeMapEvent.fromMap({
+      'type': 'cameraMove',
+      'position': {
+        'target': {'latitude': 39.9, 'longitude': 116.4},
+        'zoom': 15,
+        'bearing': 0,
+        'tilt': 0,
+      },
+    });
+    expect(move, isA<GaodeMapCameraMoveEvent>());
+
+    final drag = GaodeMapEvent.fromMap({
+      'type': 'markerDrag',
+      'id': 'm1',
+      'position': {'latitude': 39.9, 'longitude': 116.4},
+    });
+    expect(drag, isA<GaodeMapMarkerDragEvent>());
+    expect(
+      (drag as GaodeMapMarkerDragEvent).phase,
+      GaodeMapMarkerDragPhase.move,
+    );
+  });
+
+  test('GaodeMapEvent.fromMap returns unknown event for malformed payload', () {
+    final event = GaodeMapEvent.fromMap({
+      'type': 'tap',
+      'coordinate': 'invalid',
+    });
+    expect(event, isA<GaodeMapUnknownEvent>());
+    expect((event as GaodeMapUnknownEvent).type, 'tap');
+  });
+
+  test('overlay models serialize expected wire maps', () {
+    const coord = GaodeCoordinate(latitude: 39.9, longitude: 116.4);
+    const circle = GaodeMapCircle(
+      id: 'c1',
+      center: coord,
+      radius: 500,
+      fillColor: 0x330000FF,
+    );
+    expect(circle.toMap()['radius'], 500);
+
+    const polygon = GaodeMapPolygon(
+      id: 'p1',
+      points: [coord, GaodeCoordinate(latitude: 40, longitude: 116.5)],
+      fillColor: 0x330000FF,
+    );
+    expect((polygon.toMap()['points'] as List).length, 2);
+
+    const heatmap = GaodeMapHeatmap(
+      id: 'h1',
+      points: [GaodeHeatmapWeightedPoint(coordinate: coord, intensity: 2)],
+      opacity: 0.5,
+    );
+    final heatPoint = heatmap.toMap()['points'] as List;
+    expect(heatPoint.first['latitude'], 39.9);
+    expect(heatPoint.first['intensity'], 2);
+
+    const tile = GaodeMapTileOverlay(
+      id: 't1',
+      urlTemplate: 'https://example.com/{x}/{y}/{z}',
+      tileSize: 512,
+    );
+    expect(tile.toMap()['tileSize'], 512);
+  });
+
+  test('GaodeMapOptions.toMap serializes region limits and gestures', () {
+    const options = GaodeMapOptions(
+      scrollGesturesEnabled: false,
+      terrainEnabled: true,
+      regionLimits: LatLngBounds(
+        southwest: GaodeCoordinate(latitude: 39.8, longitude: 116.3),
+        northeast: GaodeCoordinate(latitude: 40.0, longitude: 116.5),
+      ),
+    );
+    final map = options.toMap();
+    expect(map['scrollGesturesEnabled'], isFalse);
+    expect(map['terrainEnabled'], isTrue);
+    expect(map['regionLimits'], isNotNull);
+  });
+
+  test('OfflineMapClient routes methods through offline map channel', () async {
+    const channel = MethodChannel('xue_hua_gaode_map');
+    final calls = <String>[];
+    setHandler(channel, (MethodCall call) async {
+      calls.add(call.method);
+      if (call.method == 'offlineMap#getCityList') {
+        return [
+          {'name': '北京市', 'cityCode': '110000', 'status': 'finished'},
+        ];
+      }
+      return null;
+    });
+
+    final client = OfflineMapClient();
+    final cities = await client.getCityList();
+    await client.downloadByCityCode('110000');
+    await client.dispose();
+
+    expect(cities, hasLength(1));
+    expect(cities.first.cityCode, '110000');
+    expect(
+      calls,
+      containsAll(['offlineMap#getCityList', 'offlineMap#downloadByCityCode', 'offlineMap#destroy']),
+    );
+
+    setHandler(channel, null);
+  });
+
+  test('OfflineMapClient throws after dispose', () async {
+    const channel = MethodChannel('xue_hua_gaode_map');
+    setHandler(channel, (MethodCall call) async => null);
+
+    final client = OfflineMapClient();
+    await client.dispose();
+
+    expect(() => client.getCityList(), throwsA(isA<StateError>()));
+
+    setHandler(channel, null);
+  });
+
+  test('GaodeMapController routes marker calls through per-view channel', () async {
+    const channel = MethodChannel('xue_hua_gaode_map/map_7');
+    String? method;
+    setHandler(channel, (MethodCall call) async {
+      method = call.method;
+      return null;
+    });
+
+    final controller = GaodeMapController.init(7);
+    await controller.addMarker(
+      const GaodeMapMarker(
+        id: 'm1',
+        position: GaodeCoordinate(latitude: 39.9, longitude: 116.4),
+      ),
+    );
+
+    expect(method, 'map#addMarker');
+
+    setHandler(channel, null);
+  });
+
+  test('OfflineMapProgressEvent.fromMap parses paused status', () {
+    final event = OfflineMapProgressEvent.fromMap({
+      'cityCode': '110000',
+      'cityName': '北京市',
+      'status': 'paused',
+      'completePercent': 10,
+    });
+    expect(event.status, OfflineMapDownloadStatus.paused);
+    expect(event.completePercent, 10);
   });
 }

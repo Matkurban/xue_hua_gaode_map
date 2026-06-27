@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.Bundle
 import com.kurban.xue_hua_gaode_map.map.GaodeMapLifecycleRegistry
 import com.kurban.xue_hua_gaode_map.map.GaodeMapViewFactory
+import com.kurban.xue_hua_gaode_map.map.OfflineMapHandler
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -24,12 +25,15 @@ class XueHuaGaodeMapPlugin :
     private lateinit var applicationContext: Context
     private lateinit var locationEventChannel: EventChannel
     private lateinit var geofenceEventChannel: EventChannel
+    private lateinit var offlineMapEventChannel: EventChannel
     private val mapLifecycleRegistry = GaodeMapLifecycleRegistry()
     private val searchClientManager = SearchClientManager()
+    private lateinit var offlineMapHandler: OfflineMapHandler
     private var trackedActivity: Activity? = null
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         applicationContext = flutterPluginBinding.applicationContext
+        offlineMapHandler = OfflineMapHandler(applicationContext)
         val messenger = flutterPluginBinding.binaryMessenger
         channel = MethodChannel(messenger, "xue_hua_gaode_map")
         channel.setMethodCallHandler(this)
@@ -65,6 +69,19 @@ class XueHuaGaodeMapPlugin :
                 override fun onCancel(arguments: Any?) {
                     val clientId = arguments as? String ?: return
                     GeofenceClientRegistry.get(applicationContext, clientId)?.setEventSink(null)
+                }
+            },
+        )
+
+        offlineMapEventChannel = EventChannel(messenger, "xue_hua_gaode_map/offline_map")
+        offlineMapEventChannel.setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    offlineMapHandler.setEventSink(events)
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    offlineMapHandler.setEventSink(null)
                 }
             },
         )
@@ -131,7 +148,87 @@ class XueHuaGaodeMapPlugin :
             "search#poiAround" -> handleSearchPoiAround(call, result)
             "search#inputTips" -> handleSearchInputTips(call, result)
             "search#geocode" -> handleSearchGeocode(call, result)
+            "offlineMap#setStoragePath" -> handleOfflineSetStoragePath(call, result)
+            "offlineMap#getCityList" -> handleOfflineGetCityList(result)
+            "offlineMap#downloadByCityCode" -> handleOfflineDownloadByCityCode(call, result)
+            "offlineMap#downloadByCityName" -> handleOfflineDownloadByCityName(call, result)
+            "offlineMap#pause" -> handleOfflinePause(call, result)
+            "offlineMap#resume" -> handleOfflineResume(call, result)
+            "offlineMap#remove" -> handleOfflineRemove(call, result)
+            "offlineMap#getDownloadStatus" -> handleOfflineGetDownloadStatus(call, result)
+            "offlineMap#destroy" -> {
+                offlineMapHandler.destroy()
+                result.success(null)
+            }
             else -> result.notImplemented()
+        }
+    }
+
+    private fun handleOfflineSetStoragePath(call: MethodCall, result: Result) {
+        val path = call.argument<String>("path")
+            ?: return result.error("INVALID_ARGUMENT", "path required", null)
+        runPrivacyGated(result) {
+            offlineMapHandler.setStoragePath(path)
+            result.success(null)
+        }
+    }
+
+    private fun handleOfflineGetCityList(result: Result) {
+        runPrivacyGated(result) {
+            result.success(offlineMapHandler.getCityList())
+        }
+    }
+
+    private fun handleOfflineDownloadByCityCode(call: MethodCall, result: Result) {
+        val cityCode = call.argument<String>("cityCode")
+            ?: return result.error("INVALID_ARGUMENT", "cityCode required", null)
+        runPrivacyGated(result) {
+            offlineMapHandler.downloadByCityCode(cityCode)
+            result.success(null)
+        }
+    }
+
+    private fun handleOfflineDownloadByCityName(call: MethodCall, result: Result) {
+        val cityName = call.argument<String>("cityName")
+            ?: return result.error("INVALID_ARGUMENT", "cityName required", null)
+        runPrivacyGated(result) {
+            offlineMapHandler.downloadByCityName(cityName)
+            result.success(null)
+        }
+    }
+
+    private fun handleOfflinePause(call: MethodCall, result: Result) {
+        val cityCode = call.argument<String>("cityCode")
+            ?: return result.error("INVALID_ARGUMENT", "cityCode required", null)
+        runPrivacyGated(result) {
+            offlineMapHandler.pause(cityCode)
+            result.success(null)
+        }
+    }
+
+    private fun handleOfflineResume(call: MethodCall, result: Result) {
+        val cityCode = call.argument<String>("cityCode")
+            ?: return result.error("INVALID_ARGUMENT", "cityCode required", null)
+        runPrivacyGated(result) {
+            offlineMapHandler.resume(cityCode)
+            result.success(null)
+        }
+    }
+
+    private fun handleOfflineRemove(call: MethodCall, result: Result) {
+        val cityCode = call.argument<String>("cityCode")
+            ?: return result.error("INVALID_ARGUMENT", "cityCode required", null)
+        runPrivacyGated(result) {
+            offlineMapHandler.remove(cityCode)
+            result.success(null)
+        }
+    }
+
+    private fun handleOfflineGetDownloadStatus(call: MethodCall, result: Result) {
+        val cityCode = call.argument<String>("cityCode")
+            ?: return result.error("INVALID_ARGUMENT", "cityCode required", null)
+        runPrivacyGated(result) {
+            result.success(offlineMapHandler.getDownloadStatus(cityCode))
         }
     }
 
@@ -206,6 +303,8 @@ class XueHuaGaodeMapPlugin :
             result.error("PRIVACY_NOT_CONFIGURED", e.message, null)
         } catch (e: IllegalArgumentException) {
             result.error("INVALID_ARGUMENT", e.message, null)
+        } catch (e: Exception) {
+            result.error("PLATFORM_ERROR", e.message, null)
         }
     }
 
@@ -401,9 +500,13 @@ class XueHuaGaodeMapPlugin :
         channel.setMethodCallHandler(null)
         locationEventChannel.setStreamHandler(null)
         geofenceEventChannel.setStreamHandler(null)
+        offlineMapEventChannel.setStreamHandler(null)
         LocationClientRegistry.destroyAll()
         GeofenceClientRegistry.destroyAll()
         mapLifecycleRegistry.destroyAll()
+        if (::offlineMapHandler.isInitialized) {
+            offlineMapHandler.destroy()
+        }
         AmapPrivacyState.privacyAgreed = false
     }
 
@@ -416,9 +519,11 @@ class XueHuaGaodeMapPlugin :
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
         onAttachedToActivity(binding)
+        mapLifecycleRegistry.onResume()
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
+        mapLifecycleRegistry.onPause()
         onDetachedFromActivity()
     }
 
