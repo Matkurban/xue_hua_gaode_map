@@ -49,9 +49,6 @@ enum LocationResultMapper {
             if let building = reGeocode.building {
                 map["buildingId"] = building
             }
-            if let floor = reGeocode.floor {
-                map["floor"] = floor
-            }
         }
         
         return map

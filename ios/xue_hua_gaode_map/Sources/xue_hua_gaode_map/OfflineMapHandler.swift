@@ -177,7 +177,6 @@ final class OfflineMapHandler {
         case .completed, .finished: return "finished"
         case .error: return "error"
         case .cancelled: return "cancelled"
-        case .pause: return "paused"
         @unknown default: return "unknown"
         }
     }
@@ -188,7 +187,6 @@ final class OfflineMapHandler {
         case .cached: return "downloading"
         case .expired: return "error"
         case .none: return "unknown"
-        case .pause: return "paused"
         @unknown default: return "unknown"
         }
     }

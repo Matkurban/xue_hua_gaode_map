@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.1.1
+
+### Fixed
+
+- iOS compile errors against AMap3DMap 11.x: unwrap optional `MATileOverlay(urlTemplate:)`
+  and remove invalid `MAOverlayRenderer.zIndex` (not present in the 3D SDK).
+- iOS compile errors for optional overlay initializers (`MAPolyline`, `MAPolygon`, etc.).
+- iOS SDK compatibility: remove `AMapLocationReGeocode.floor` and offline-map `.pause`
+  status cases not present in current AMap SDK versions.
+
+### Changed
+
+- iOS overlay `zIndex` is applied via `MAMapView.insertOverlay(_:at:level:)` insert
+  order (ground overlays use `MAOverlayLevelAboveRoads`; others use
+  `MAOverlayLevelAboveLabels`), aligning stacking behavior with Android.
+- iOS marker `zIndex` is applied on `MAAnnotationView` in `viewFor annotation`.
+- iOS tile overlay `visible` alpha is applied in `rendererFor`.
+
 ## 1.1.0
 
 ### Added

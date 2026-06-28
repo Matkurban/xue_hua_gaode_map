@@ -10,6 +10,7 @@ private final class GaodePointAnnotation: MAPointAnnotation {
     var anchorV: CGFloat = 1.0
     var rotation: CGFloat = 0
     var markerAlpha: CGFloat = 1
+    var markerZIndex: Int = 0
     var isDraggable: Bool = false
     var infoWindowEnabled: Bool = true
 }
@@ -45,6 +46,8 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
     private var polygonStyles: [String: [String: Any]] = [:]
     private var circleStyles: [String: [String: Any]] = [:]
     private var arcStyles: [String: [String: Any]] = [:]
+    private var tileOverlayStyles: [String: [String: Any]] = [:]
+    private var groundOverlayStyles: [String: [String: Any]] = [:]
     private var multiPointIcons: [String: UIImage] = [:]
     private var groundOverlayAlphas: [String: CGFloat] = [:]
     private var markerIcons: [String: Data] = [:]
@@ -547,6 +550,7 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
         annotation.isDraggable = args["draggable"] as? Bool ?? false
         annotation.rotation = CGFloat(args["rotation"] as? Double ?? 0)
         annotation.markerAlpha = CGFloat(args["alpha"] as? Double ?? 1)
+        annotation.markerZIndex = args["zIndex"] as? Int ?? 0
         annotation.infoWindowEnabled = args["infoWindowEnabled"] as? Bool ?? true
         if let iconMap = args["icon"] as? [String: Any],
            let typedData = iconMap["bytes"] as? FlutterStandardTypedData {
@@ -573,9 +577,11 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
         removeOverlay(from: &polylines, id: id)
         polylineStyles[id] = args
         var mutable = coords
-        let polyline = MAPolyline(coordinates: &mutable, count: UInt(mutable.count))
+        guard let polyline = MAPolyline(coordinates: &mutable, count: UInt(mutable.count)) else {
+            throw MapArgumentError(message: "failed to create polyline")
+        }
         polylines[id] = polyline
-        mapView.add(polyline)
+        addOverlayToMap(polyline, style: args)
     }
     
     private func addPolygon(_ args: [String: Any]) throws {
@@ -587,9 +593,11 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
         removeOverlay(from: &polygons, id: id)
         polygonStyles[id] = args
         var mutable = coords
-        let polygon = MAPolygon(coordinates: &mutable, count: UInt(mutable.count))
+        guard let polygon = MAPolygon(coordinates: &mutable, count: UInt(mutable.count)) else {
+            throw MapArgumentError(message: "failed to create polygon")
+        }
         polygons[id] = polygon
-        mapView.add(polygon)
+        addOverlayToMap(polygon, style: args)
     }
     
     private func addCircle(_ args: [String: Any]) throws {
@@ -600,9 +608,11 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
         }
         removeOverlay(from: &circles, id: id)
         circleStyles[id] = args
-        let circle = MACircle(center: center, radius: radius)
+        guard let circle = MACircle(center: center, radius: radius) else {
+            throw MapArgumentError(message: "failed to create circle")
+        }
         circles[id] = circle
-        mapView.add(circle)
+        addOverlayToMap(circle, style: args)
     }
     
     private func addArc(_ args: [String: Any]) throws {
@@ -614,9 +624,11 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
         }
         removeOverlay(from: &arcs, id: id)
         arcStyles[id] = args
-        let arc = MAArc(start: start, passedCoordinate: passed, end: end)
+        guard let arc = MAArc(start: start, passedCoordinate: passed, end: end) else {
+            throw MapArgumentError(message: "failed to create arc")
+        }
         arcs[id] = arc
-        mapView.add(arc)
+        addOverlayToMap(arc, style: args)
     }
     
     private func addGroundOverlay(_ args: [String: Any]) throws {
@@ -637,8 +649,9 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
             throw MapArgumentError(message: "failed to create ground overlay")
         }
         groundOverlayAlphas[id] = CGFloat(1.0 - (args["transparency"] as? Double ?? 0))
+        groundOverlayStyles[id] = args
         groundOverlays[id] = overlay
-        mapView.add(overlay)
+        addOverlayToMap(overlay, style: args)
     }
     
     private func addHeatmap(_ args: [String: Any]) throws {
@@ -665,7 +678,7 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
         overlay.radius = args["radius"] as? Int ?? 38
         overlay.opacity = args["opacity"] as? Double ?? 0.6
         heatmaps[id] = overlay
-        mapView.add(overlay)
+        addOverlayToMap(overlay, style: ["zIndex": 0])
     }
     
     private func addMultiPoint(_ args: [String: Any]) throws {
@@ -682,10 +695,12 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
             item.coordinate = coord
             return item
         }
-        let overlay = MAMultiPointOverlay(multiPointItems: items)
+        guard let overlay = MAMultiPointOverlay(multiPointItems: items) else {
+            throw MapArgumentError(message: "failed to create multi-point overlay")
+        }
         multiPointIcons[id] = image
         multiPoints[id] = overlay
-        mapView.add(overlay)
+        addOverlayToMap(overlay, style: ["zIndex": 0])
     }
     
     private func addTileOverlay(_ args: [String: Any]) throws {
@@ -694,12 +709,61 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
             throw MapArgumentError(message: "invalid tile overlay arguments")
         }
         removeOverlay(from: &tileOverlays, id: id)
-        let overlay = MATileOverlay(urlTemplate: template)
+        guard let overlay = MATileOverlay(urlTemplate: template) else {
+            throw MapArgumentError(message: "failed to create tile overlay")
+        }
         if let tileSize = args["tileSize"] as? Int {
             overlay.tileSize = CGSize(width: tileSize, height: tileSize)
         }
+        tileOverlayStyles[id] = args
         tileOverlays[id] = overlay
-        mapView.add(overlay)
+        addOverlayToMap(overlay, style: args)
+    }
+    
+    private func overlayLevel(for overlay: MAOverlay) -> MAOverlayLevel {
+        overlay is MAGroundOverlay ? .aboveRoads : .aboveLabels
+    }
+    
+    private func overlayZIndex(for overlay: MAOverlay) -> Int {
+        if let id = polylines.first(where: { $0.value === overlay })?.key,
+           let zIndex = polylineStyles[id]?["zIndex"] as? Int {
+            return zIndex
+        }
+        if let id = polygons.first(where: { $0.value === overlay })?.key,
+           let zIndex = polygonStyles[id]?["zIndex"] as? Int {
+            return zIndex
+        }
+        if let id = circles.first(where: { $0.value === overlay })?.key,
+           let zIndex = circleStyles[id]?["zIndex"] as? Int {
+            return zIndex
+        }
+        if let id = arcs.first(where: { $0.value === overlay })?.key,
+           let zIndex = arcStyles[id]?["zIndex"] as? Int {
+            return zIndex
+        }
+        if let id = groundOverlays.first(where: { $0.value === overlay })?.key,
+           let zIndex = groundOverlayStyles[id]?["zIndex"] as? Int {
+            return zIndex
+        }
+        if let id = tileOverlays.first(where: { $0.value === overlay })?.key,
+           let zIndex = tileOverlayStyles[id]?["zIndex"] as? Int {
+            return zIndex
+        }
+        return 0
+    }
+    
+    private func addOverlayToMap(_ overlay: MAOverlay, style: [String: Any]) {
+        let targetZIndex = style["zIndex"] as? Int ?? 0
+        let level = overlayLevel(for: overlay)
+        let existing = mapView.overlays(in: level) as? [MAOverlay] ?? []
+        var insertIndex = existing.count
+        for (index, item) in existing.enumerated() {
+            if overlayZIndex(for: item) > targetZIndex {
+                insertIndex = index
+                break
+            }
+        }
+        mapView.insert(overlay, at: UInt(insertIndex), level: level)
     }
     
     private func removeOverlay<T>(from dict: inout [String: T], id: String?) {
@@ -709,6 +773,8 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
         polygonStyles.removeValue(forKey: id)
         circleStyles.removeValue(forKey: id)
         arcStyles.removeValue(forKey: id)
+        tileOverlayStyles.removeValue(forKey: id)
+        groundOverlayStyles.removeValue(forKey: id)
         multiPointIcons.removeValue(forKey: id)
         groundOverlayAlphas.removeValue(forKey: id)
     }
@@ -718,9 +784,6 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
         if let visible = style["visible"] as? Bool {
             renderer.alpha = visible ? 1 : 0
         }
-        if let zIndex = style["zIndex"] as? Int {
-            renderer.zIndex = Int32(zIndex)
-        }
     }
     
     private func clearOverlayDict<T>(_ dict: inout [String: T]) {
@@ -729,6 +792,8 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
             polygonStyles.removeValue(forKey: id)
             circleStyles.removeValue(forKey: id)
             arcStyles.removeValue(forKey: id)
+            tileOverlayStyles.removeValue(forKey: id)
+            groundOverlayStyles.removeValue(forKey: id)
             multiPointIcons.removeValue(forKey: id)
             groundOverlayAlphas.removeValue(forKey: id)
         }
@@ -851,6 +916,7 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
         }
         view?.canShowCallout = gaodeAnnotation.infoWindowEnabled
         view?.isDraggable = gaodeAnnotation.isDraggable
+        view?.zIndex = gaodeAnnotation.markerZIndex
         view?.alpha = gaodeAnnotation.markerAlpha
         if let data = gaodeAnnotation.iconData, let image = UIImage(data: data) {
             view?.image = image
@@ -925,7 +991,12 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
             return renderer
         }
         if let tile = overlay as? MATileOverlay {
-            return MATileOverlayRenderer(tileOverlay: tile)
+            let renderer = MATileOverlayRenderer(tileOverlay: tile)
+            if let id = tileOverlays.first(where: { $0.value === tile })?.key,
+               let style = tileOverlayStyles[id] {
+                applyOverlayRendererStyle(renderer, style: style)
+            }
+            return renderer
         }
         return nil
     }
