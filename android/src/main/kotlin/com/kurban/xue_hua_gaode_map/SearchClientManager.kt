@@ -150,7 +150,10 @@ class SearchClientManager {
                     )
                 }
 
-                override fun onRegeocodeSearched(regeocodeResult: RegeocodeResult?, errorCode: Int) {
+                override fun onRegeocodeSearched(
+                    regeocodeResult: RegeocodeResult?,
+                    errorCode: Int
+                ) {
                     // Reverse geocode is handled by the location module.
                 }
             },

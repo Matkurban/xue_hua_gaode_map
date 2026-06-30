@@ -48,7 +48,8 @@ class XueHuaGaodeMapPlugin :
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     val clientId = arguments as? String ?: return
-                    LocationClientRegistry.getOrCreate(applicationContext, clientId).setEventSink(events)
+                    LocationClientRegistry.getOrCreate(applicationContext, clientId)
+                        .setEventSink(events)
                 }
 
                 override fun onCancel(arguments: Any?) {
@@ -63,7 +64,8 @@ class XueHuaGaodeMapPlugin :
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     val clientId = arguments as? String ?: return
-                    GeofenceClientRegistry.getOrCreate(applicationContext, clientId).setEventSink(events)
+                    GeofenceClientRegistry.getOrCreate(applicationContext, clientId)
+                        .setEventSink(events)
                 }
 
                 override fun onCancel(arguments: Any?) {
@@ -160,6 +162,7 @@ class XueHuaGaodeMapPlugin :
                 offlineMapHandler.destroy()
                 result.success(null)
             }
+
             else -> result.notImplemented()
         }
     }
@@ -309,7 +312,8 @@ class XueHuaGaodeMapPlugin :
     }
 
     private fun handleLocationSetOptions(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
 
         @Suppress("UNCHECKED_CAST")
         val options = call.argument<Map<String, Any?>>("options") ?: emptyMap()
@@ -320,7 +324,8 @@ class XueHuaGaodeMapPlugin :
     }
 
     private fun handleLocationStart(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         runPrivacyGated(result) {
             LocationClientRegistry.getOrCreate(applicationContext, id).start()
             result.success(null)
@@ -328,13 +333,15 @@ class XueHuaGaodeMapPlugin :
     }
 
     private fun handleLocationStop(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         LocationClientRegistry.getOrCreate(applicationContext, id).stop()
         result.success(null)
     }
 
     private fun handleLocationGetOnce(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         try {
             LocationClientRegistry.getOrCreate(applicationContext, id).getOnce { locationResult ->
                 locationResult
@@ -347,13 +354,15 @@ class XueHuaGaodeMapPlugin :
     }
 
     private fun handleLocationDestroy(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         LocationClientRegistry.destroy(id)
         result.success(null)
     }
 
     private fun handleLocationReverseGeocode(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         val lat = call.argument<Double>("latitude")
         val lng = call.argument<Double>("longitude")
         if (lat == null || lng == null) {
@@ -361,18 +370,20 @@ class XueHuaGaodeMapPlugin :
             return
         }
         try {
-            LocationClientRegistry.getOrCreate(applicationContext, id).reverseGeocode(lat, lng) { locationResult ->
-                locationResult
-                    .onSuccess { result.success(it) }
-                    .onFailure { result.error("REGEOCODE_ERROR", it.message, null) }
-            }
+            LocationClientRegistry.getOrCreate(applicationContext, id)
+                .reverseGeocode(lat, lng) { locationResult ->
+                    locationResult
+                        .onSuccess { result.success(it) }
+                        .onFailure { result.error("REGEOCODE_ERROR", it.message, null) }
+                }
         } catch (e: IllegalStateException) {
             result.error("PRIVACY_NOT_CONFIGURED", e.message, null)
         }
     }
 
     private fun handleGeofenceSetActiveActions(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         val actions = call.argument<List<String>>("actions") ?: listOf("enter")
         runPrivacyGated(result) {
             GeofenceClientRegistry.getOrCreate(applicationContext, id).setActiveActions(actions)
@@ -381,29 +392,48 @@ class XueHuaGaodeMapPlugin :
     }
 
     private fun handleGeofenceAddCircle(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         val lat =
-            call.argument<Double>("latitude") ?: return result.error("INVALID_ARGUMENT", "latitude required", null)
+            call.argument<Double>("latitude") ?: return result.error(
+                "INVALID_ARGUMENT",
+                "latitude required",
+                null
+            )
         val lng =
-            call.argument<Double>("longitude") ?: return result.error("INVALID_ARGUMENT", "longitude required", null)
+            call.argument<Double>("longitude") ?: return result.error(
+                "INVALID_ARGUMENT",
+                "longitude required",
+                null
+            )
         val radius = call.argument<Double>("radius")?.toFloat()
             ?: return result.error("INVALID_ARGUMENT", "radius required", null)
         val customId =
-            call.argument<String>("customId") ?: return result.error("INVALID_ARGUMENT", "customId required", null)
+            call.argument<String>("customId") ?: return result.error(
+                "INVALID_ARGUMENT",
+                "customId required",
+                null
+            )
         runPrivacyGated(result) {
-            GeofenceClientRegistry.getOrCreate(applicationContext, id).addCircle(lat, lng, radius, customId)
+            GeofenceClientRegistry.getOrCreate(applicationContext, id)
+                .addCircle(lat, lng, radius, customId)
             result.success(null)
         }
     }
 
     private fun handleGeofenceAddPolygon(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
 
         @Suppress("UNCHECKED_CAST")
         val points = call.argument<List<Map<String, Any?>>>("points")
             ?: return result.error("INVALID_ARGUMENT", "points required", null)
         val customId =
-            call.argument<String>("customId") ?: return result.error("INVALID_ARGUMENT", "customId required", null)
+            call.argument<String>("customId") ?: return result.error(
+                "INVALID_ARGUMENT",
+                "customId required",
+                null
+            )
         runPrivacyGated(result) {
             GeofenceClientRegistry.getOrCreate(applicationContext, id).addPolygon(points, customId)
             result.success(null)
@@ -411,14 +441,23 @@ class XueHuaGaodeMapPlugin :
     }
 
     private fun handleGeofenceAddPoiKeyword(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         val keyword =
-            call.argument<String>("keyword") ?: return result.error("INVALID_ARGUMENT", "keyword required", null)
+            call.argument<String>("keyword") ?: return result.error(
+                "INVALID_ARGUMENT",
+                "keyword required",
+                null
+            )
         val poiType = call.argument<String>("poiType") ?: ""
         val city = call.argument<String>("city") ?: ""
         val size = call.argument<Int>("size") ?: 1
         val customId =
-            call.argument<String>("customId") ?: return result.error("INVALID_ARGUMENT", "customId required", null)
+            call.argument<String>("customId") ?: return result.error(
+                "INVALID_ARGUMENT",
+                "customId required",
+                null
+            )
         runPrivacyGated(result) {
             GeofenceClientRegistry.getOrCreate(applicationContext, id)
                 .addPoiKeyword(keyword, poiType, city, size, customId)
@@ -427,18 +466,35 @@ class XueHuaGaodeMapPlugin :
     }
 
     private fun handleGeofenceAddPoiAround(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         val keyword =
-            call.argument<String>("keyword") ?: return result.error("INVALID_ARGUMENT", "keyword required", null)
+            call.argument<String>("keyword") ?: return result.error(
+                "INVALID_ARGUMENT",
+                "keyword required",
+                null
+            )
         val poiType = call.argument<String>("poiType") ?: ""
         val lat =
-            call.argument<Double>("latitude") ?: return result.error("INVALID_ARGUMENT", "latitude required", null)
+            call.argument<Double>("latitude") ?: return result.error(
+                "INVALID_ARGUMENT",
+                "latitude required",
+                null
+            )
         val lng =
-            call.argument<Double>("longitude") ?: return result.error("INVALID_ARGUMENT", "longitude required", null)
+            call.argument<Double>("longitude") ?: return result.error(
+                "INVALID_ARGUMENT",
+                "longitude required",
+                null
+            )
         val aroundRadius = call.argument<Double>("aroundRadius")?.toFloat() ?: 3000f
         val size = call.argument<Int>("size") ?: 10
         val customId =
-            call.argument<String>("customId") ?: return result.error("INVALID_ARGUMENT", "customId required", null)
+            call.argument<String>("customId") ?: return result.error(
+                "INVALID_ARGUMENT",
+                "customId required",
+                null
+            )
         runPrivacyGated(result) {
             GeofenceClientRegistry.getOrCreate(applicationContext, id)
                 .addPoiAround(keyword, poiType, lat, lng, aroundRadius, size, customId)
@@ -447,27 +503,40 @@ class XueHuaGaodeMapPlugin :
     }
 
     private fun handleGeofenceAddDistrict(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         val keyword =
-            call.argument<String>("keyword") ?: return result.error("INVALID_ARGUMENT", "keyword required", null)
+            call.argument<String>("keyword") ?: return result.error(
+                "INVALID_ARGUMENT",
+                "keyword required",
+                null
+            )
         val customId =
-            call.argument<String>("customId") ?: return result.error("INVALID_ARGUMENT", "customId required", null)
+            call.argument<String>("customId") ?: return result.error(
+                "INVALID_ARGUMENT",
+                "customId required",
+                null
+            )
         runPrivacyGated(result) {
-            GeofenceClientRegistry.getOrCreate(applicationContext, id).addDistrict(keyword, customId)
+            GeofenceClientRegistry.getOrCreate(applicationContext, id)
+                .addDistrict(keyword, customId)
             result.success(null)
         }
     }
 
     private fun handleGeofenceRemove(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         runPrivacyGated(result) {
-            GeofenceClientRegistry.getOrCreate(applicationContext, id).remove(call.argument("customId"))
+            GeofenceClientRegistry.getOrCreate(applicationContext, id)
+                .remove(call.argument("customId"))
             result.success(null)
         }
     }
 
     private fun handleGeofenceRemoveAll(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         runPrivacyGated(result) {
             GeofenceClientRegistry.getOrCreate(applicationContext, id).removeAll()
             result.success(null)
@@ -475,7 +544,8 @@ class XueHuaGaodeMapPlugin :
     }
 
     private fun handleGeofencePause(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         runPrivacyGated(result) {
             GeofenceClientRegistry.getOrCreate(applicationContext, id).pause()
             result.success(null)
@@ -483,7 +553,8 @@ class XueHuaGaodeMapPlugin :
     }
 
     private fun handleGeofenceResume(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         runPrivacyGated(result) {
             GeofenceClientRegistry.getOrCreate(applicationContext, id).resume()
             result.success(null)
@@ -491,7 +562,8 @@ class XueHuaGaodeMapPlugin :
     }
 
     private fun handleGeofenceDestroy(call: MethodCall, result: Result) {
-        val id = clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
+        val id =
+            clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         GeofenceClientRegistry.destroy(id)
         result.success(null)
     }

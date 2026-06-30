@@ -94,7 +94,14 @@ class GeofenceClientManager(
         customId: String,
     ) {
         AmapPrivacyState.requirePrivacyAgreed()
-        ensureClient().addGeoFence(keyword, poiType, createPoint(lat, lng), aroundRadius, size, customId)
+        ensureClient().addGeoFence(
+            keyword,
+            poiType,
+            createPoint(lat, lng),
+            aroundRadius,
+            size,
+            customId
+        )
     }
 
     fun addDistrict(keyword: String, customId: String) {
@@ -106,7 +113,8 @@ class GeofenceClientManager(
         if (customId == null) {
             ensureClient().removeGeoFence()
         } else {
-            val fences = ensureClient().allGeoFence?.filter { it.customId == customId } ?: emptyList()
+            val fences =
+                ensureClient().allGeoFence?.filter { it.customId == customId } ?: emptyList()
             fences.forEach { ensureClient().removeGeoFence(it) }
         }
     }
@@ -164,7 +172,12 @@ class GeofenceClientManager(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context.registerReceiver(broadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
-            ContextCompat.registerReceiver(context, broadcastReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+            ContextCompat.registerReceiver(
+                context,
+                broadcastReceiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
         }
     }
 

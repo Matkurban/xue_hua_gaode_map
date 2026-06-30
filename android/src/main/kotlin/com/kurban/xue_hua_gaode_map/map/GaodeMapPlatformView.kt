@@ -14,8 +14,8 @@ import com.amap.api.maps.AMap.OnMarkerDragListener
 import com.amap.api.maps.AMap.OnMyLocationChangeListener
 import com.amap.api.maps.AMapOptions
 import com.amap.api.maps.CameraUpdateFactory
-import com.amap.api.maps.MapsInitializer
 import com.amap.api.maps.MapView
+import com.amap.api.maps.MapsInitializer
 import com.amap.api.maps.model.Arc
 import com.amap.api.maps.model.ArcOptions
 import com.amap.api.maps.model.BitmapDescriptorFactory
@@ -121,26 +121,24 @@ class GaodeMapPlatformView(
             val id = marker.getObject() as? String ?: return@setOnInfoWindowClickListener
             emit("infoWindowTap", mapOf("id" to id))
         }
-        aMap.setOnMyLocationChangeListener(
-            OnMyLocationChangeListener { location ->
-                if (restoreMyLocationStyleAfterLocate) {
-                    restoreMyLocationStyleAfterLocate = false
-                    aMap.myLocationStyle = buildMyLocationStyle()
-                }
-                emit(
-                    "myLocationChange",
-                    mapOf(
-                        "coordinate" to
+        aMap.setOnMyLocationChangeListener { location ->
+            if (restoreMyLocationStyleAfterLocate) {
+                restoreMyLocationStyleAfterLocate = false
+                aMap.myLocationStyle = buildMyLocationStyle()
+            }
+            emit(
+                "myLocationChange",
+                mapOf(
+                    "coordinate" to
                             GaodeMapParsing.coordinateMap(
                                 LatLng(location.latitude, location.longitude),
                             ),
-                        "accuracy" to location.accuracy.toDouble(),
-                        "bearing" to location.bearing.toDouble(),
-                        "speed" to location.speed.toDouble(),
-                    ),
-                )
-            },
-        )
+                    "accuracy" to location.accuracy.toDouble(),
+                    "bearing" to location.bearing.toDouble(),
+                    "speed" to location.speed.toDouble(),
+                ),
+            )
+        }
     }
 
     override fun getView(): View = mapView
@@ -172,67 +170,85 @@ class GaodeMapPlatformView(
                     applyCamera(call, animated = call.argument<Boolean>("animated") ?: true)
                     result.success(null)
                 }
+
                 "map#animateCamera" -> {
                     animateCamera(call)
                     result.success(null)
                 }
+
                 "map#fitBounds" -> {
                     fitBounds(call)
                     result.success(null)
                 }
+
                 "map#setMapRegionLimits" -> {
                     setRegionLimits(call)
                     result.success(null)
                 }
+
                 "map#zoomIn" -> {
                     aMap.animateCamera(CameraUpdateFactory.zoomIn())
                     result.success(null)
                 }
+
                 "map#zoomOut" -> {
                     aMap.animateCamera(CameraUpdateFactory.zoomOut())
                     result.success(null)
                 }
+
                 "map#setMapType" -> {
                     aMap.mapType = mapTypeValue(call.argument<String>("mapType"))
                     result.success(null)
                 }
+
                 "map#setTrafficEnabled" -> {
                     aMap.isTrafficEnabled = call.argument<Boolean>("enabled") ?: false
                     result.success(null)
                 }
+
                 "map#setBuildingsEnabled" -> {
                     aMap.showBuildings(call.argument<Boolean>("enabled") ?: true)
                     result.success(null)
                 }
+
                 "map#setMapTextEnabled" -> {
                     aMap.showMapText(call.argument<Boolean>("enabled") ?: true)
                     result.success(null)
                 }
+
                 "map#setIndoorEnabled" -> {
                     aMap.showIndoorMap(call.argument<Boolean>("enabled") ?: false)
                     result.success(null)
                 }
+
                 "map#setCompassEnabled" -> {
                     aMap.uiSettings.isCompassEnabled = call.argument<Boolean>("enabled") ?: true
                     result.success(null)
                 }
+
                 "map#setScaleEnabled" -> {
-                    aMap.uiSettings.isScaleControlsEnabled = call.argument<Boolean>("enabled") ?: true
+                    aMap.uiSettings.isScaleControlsEnabled =
+                        call.argument<Boolean>("enabled") ?: true
                     result.success(null)
                 }
+
                 "map#setLogoPosition" -> {
-                    aMap.uiSettings.logoPosition = logoPositionValue(call.argument<String>("position"))
+                    aMap.uiSettings.logoPosition =
+                        logoPositionValue(call.argument<String>("position"))
                     result.success(null)
                 }
+
                 "map#setMinMaxZoom" -> {
                     call.argument<Number>("minZoom")?.toFloat()?.let { aMap.minZoomLevel = it }
                     call.argument<Number>("maxZoom")?.toFloat()?.let { aMap.maxZoomLevel = it }
                     result.success(null)
                 }
+
                 "map#setMyLocationEnabled" -> {
                     setMyLocationEnabled(call.argument<Boolean>("enabled") ?: false)
                     result.success(null)
                 }
+
                 "map#setMyLocationIcon" -> {
                     @Suppress("UNCHECKED_CAST")
                     myLocationIconConfig = call.argument<Map<String, Any?>>("icon")
@@ -241,6 +257,7 @@ class GaodeMapPlatformView(
                     }
                     result.success(null)
                 }
+
                 "map#setMyLocationStyle" -> {
                     @Suppress("UNCHECKED_CAST")
                     myLocationStyleConfig = call.argument<Map<String, Any?>>("style")
@@ -249,139 +266,169 @@ class GaodeMapPlatformView(
                     }
                     result.success(null)
                 }
+
                 "map#getMyLocation" -> {
                     result.success(readMyLocation())
                 }
+
                 "map#moveToMyLocation" -> {
                     moveToMyLocation(call.argument<Boolean>("animated") ?: true)
                     result.success(null)
                 }
+
                 "map#setMyLocationButtonEnabled" -> {
                     aMap.uiSettings.isMyLocationButtonEnabled =
                         call.argument<Boolean>("enabled") ?: false
                     result.success(null)
                 }
+
                 "map#setZoomControlsEnabled" -> {
                     aMap.uiSettings.isZoomControlsEnabled =
                         call.argument<Boolean>("enabled") ?: false
                     result.success(null)
                 }
+
                 "map#setZoomControlsPosition" -> {
                     aMap.uiSettings.zoomPosition =
                         zoomPositionValue(call.argument<String>("position"))
                     result.success(null)
                 }
+
                 "map#addMarker" -> {
                     addMarker(call)
                     result.success(null)
                 }
+
                 "map#removeMarker" -> removeById(markers, call.argument("id"), result)
                 "map#clearMarkers" -> {
                     markers.values.forEach { it.remove() }
                     markers.clear()
                     result.success(null)
                 }
+
                 "map#showInfoWindow" -> {
                     markers[call.argument("id")]?.showInfoWindow()
                     result.success(null)
                 }
+
                 "map#hideInfoWindow" -> {
                     markers[call.argument("id")]?.hideInfoWindow()
                     result.success(null)
                 }
+
                 "map#addPolyline" -> {
                     addPolyline(call)
                     result.success(null)
                 }
+
                 "map#removePolyline" -> removeById(polylines, call.argument("id"), result)
                 "map#clearPolylines" -> {
                     polylines.values.forEach { it.remove() }
                     polylines.clear()
                     result.success(null)
                 }
+
                 "map#addPolygon" -> {
                     addPolygon(call)
                     result.success(null)
                 }
+
                 "map#removePolygon" -> removeById(polygons, call.argument("id"), result)
                 "map#clearPolygons" -> {
                     polygons.values.forEach { it.remove() }
                     polygons.clear()
                     result.success(null)
                 }
+
                 "map#addCircle" -> {
                     addCircle(call)
                     result.success(null)
                 }
+
                 "map#removeCircle" -> removeById(circles, call.argument("id"), result)
                 "map#clearCircles" -> {
                     circles.values.forEach { it.remove() }
                     circles.clear()
                     result.success(null)
                 }
+
                 "map#addArc" -> {
                     addArc(call)
                     result.success(null)
                 }
+
                 "map#removeArc" -> removeById(arcs, call.argument("id"), result)
                 "map#clearArcs" -> {
                     arcs.values.forEach { it.remove() }
                     arcs.clear()
                     result.success(null)
                 }
+
                 "map#addGroundOverlay" -> {
                     addGroundOverlay(call)
                     result.success(null)
                 }
+
                 "map#removeGroundOverlay" -> removeById(groundOverlays, call.argument("id"), result)
                 "map#clearGroundOverlays" -> {
                     groundOverlays.values.forEach { it.remove() }
                     groundOverlays.clear()
                     result.success(null)
                 }
+
                 "map#addHeatmap" -> {
                     addHeatmap(call)
                     result.success(null)
                 }
+
                 "map#removeHeatmap" -> {
                     heatmapTiles.remove(call.argument("id"))?.remove()
                     result.success(null)
                 }
+
                 "map#clearHeatmaps" -> {
                     heatmapTiles.values.forEach { it.remove() }
                     heatmapTiles.clear()
                     result.success(null)
                 }
+
                 "map#addMultiPoint" -> {
                     addMultiPoint(call)
                     result.success(null)
                 }
+
                 "map#removeMultiPoint" -> {
                     multiPoints.remove(call.argument("id"))?.remove()
                     result.success(null)
                 }
+
                 "map#clearMultiPoints" -> {
                     multiPoints.values.forEach { it.remove() }
                     multiPoints.clear()
                     result.success(null)
                 }
+
                 "map#addTileOverlay" -> {
                     addTileOverlay(call)
                     result.success(null)
                 }
+
                 "map#removeTileOverlay" -> {
                     tileOverlays.remove(call.argument("id"))?.remove()
                     result.success(null)
                 }
+
                 "map#clearTileOverlays" -> {
                     tileOverlays.values.forEach { it.remove() }
                     tileOverlays.clear()
                     result.success(null)
                 }
+
                 "map#clearOverlays" -> {
                     clearAllOverlays()
                     result.success(null)
                 }
+
                 "map#takeSnapshot" -> takeSnapshot(result)
                 "map#toScreenLocation" -> {
                     val latLng = GaodeMapParsing.latLng(call.arguments as? Map<String, Any?>)
@@ -389,6 +436,7 @@ class GaodeMapPlatformView(
                     val point = aMap.projection.toScreenLocation(latLng)
                     result.success(mapOf("x" to point.x.toDouble(), "y" to point.y.toDouble()))
                 }
+
                 "map#fromScreenLocation" -> {
                     @Suppress("UNCHECKED_CAST")
                     val args = call.arguments as? Map<String, Any?> ?: emptyMap()
@@ -402,9 +450,15 @@ class GaodeMapPlatformView(
                         "y required",
                         null,
                     )
-                    val latLng = aMap.projection.fromScreenLocation(android.graphics.Point(x.toInt(), y.toInt()))
+                    val latLng = aMap.projection.fromScreenLocation(
+                        android.graphics.Point(
+                            x.toInt(),
+                            y.toInt()
+                        )
+                    )
                     result.success(GaodeMapParsing.coordinateMap(latLng))
                 }
+
                 else -> result.notImplemented()
             }
         } catch (e: IllegalStateException) {
@@ -542,7 +596,7 @@ class GaodeMapPlatformView(
     }
 
     private fun applyCameraMap(map: Map<String, Any?>, animated: Boolean) {
-        val targetMap = map["target"] as? Map<String, Any?> ?: return
+        val targetMap = map["target"] as? Map<*, *> ?: return
         val lat = (targetMap["latitude"] as? Number)?.toDouble() ?: return
         val lng = (targetMap["longitude"] as? Number)?.toDouble() ?: return
         val zoom = (map["zoom"] as? Number)?.toFloat() ?: 16f
@@ -560,6 +614,7 @@ class GaodeMapPlatformView(
             ?: throw IllegalArgumentException("bounds required")
         val bounds = boundsFromMap(boundsMap)
             ?: throw IllegalArgumentException("invalid bounds")
+
         @Suppress("UNCHECKED_CAST")
         val paddingMap = call.argument<Map<String, Any?>>("padding") ?: emptyMap()
         val left = (paddingMap["left"] as? Number)?.toInt() ?: 0
@@ -586,6 +641,7 @@ class GaodeMapPlatformView(
     private fun boundsFromMap(map: Map<String, Any?>): LatLngBounds? {
         @Suppress("UNCHECKED_CAST")
         val sw = map["southwest"] as? Map<String, Any?> ?: return null
+
         @Suppress("UNCHECKED_CAST")
         val ne = map["northeast"] as? Map<String, Any?> ?: return null
         val swLatLng = GaodeMapParsing.latLng(sw) ?: return null
@@ -692,6 +748,7 @@ class GaodeMapPlatformView(
     private fun addPolyline(call: MethodCall) {
         val id = call.argument<String>("id")
             ?: throw IllegalArgumentException("id required")
+
         @Suppress("UNCHECKED_CAST")
         val points = GaodeMapParsing.latLngList(call.argument("points"))
         if (points.isEmpty()) throw IllegalArgumentException("points required")
@@ -710,13 +767,14 @@ class GaodeMapPlatformView(
     private fun addPolygon(call: MethodCall) {
         val id = call.argument<String>("id")
             ?: throw IllegalArgumentException("id required")
+
         @Suppress("UNCHECKED_CAST")
         val points = GaodeMapParsing.latLngList(call.argument("points"))
         if (points.size < 3) throw IllegalArgumentException("at least 3 points required")
         polygons.remove(id)?.remove()
         val options = PolygonOptions()
             .addAll(points)
-            .fillColor(GaodeMapParsing.argColor(call, "fillColor", 0x330000FF.toInt()))
+            .fillColor(GaodeMapParsing.argColor(call, "fillColor", 0x330000FF))
             .strokeColor(GaodeMapParsing.argColor(call, "strokeColor", 0xFF0000FF.toInt()))
             .strokeWidth(call.argument<Number>("strokeWidth")?.toFloat() ?: 10f)
             .zIndex(call.argument<Int>("zIndex")?.toFloat() ?: 0f)
@@ -735,7 +793,7 @@ class GaodeMapPlatformView(
         val options = CircleOptions()
             .center(center)
             .radius(radius)
-            .fillColor(GaodeMapParsing.argColor(call, "fillColor", 0x330000FF.toInt()))
+            .fillColor(GaodeMapParsing.argColor(call, "fillColor", 0x330000FF))
             .strokeColor(GaodeMapParsing.argColor(call, "strokeColor", 0xFF0000FF.toInt()))
             .strokeWidth(call.argument<Number>("strokeWidth")?.toFloat() ?: 10f)
             .zIndex(call.argument<Int>("zIndex")?.toFloat() ?: 0f)
@@ -765,11 +823,13 @@ class GaodeMapPlatformView(
     private fun addGroundOverlay(call: MethodCall) {
         val id = call.argument<String>("id")
             ?: throw IllegalArgumentException("id required")
+
         @Suppress("UNCHECKED_CAST")
         val boundsMap = call.argument<Map<String, Any?>>("bounds")
             ?: throw IllegalArgumentException("bounds required")
         val bounds = boundsFromMap(boundsMap)
             ?: throw IllegalArgumentException("invalid bounds")
+
         @Suppress("UNCHECKED_CAST")
         val imageMap = call.argument<Map<String, Any?>>("image")
             ?: throw IllegalArgumentException("image required")
@@ -790,6 +850,7 @@ class GaodeMapPlatformView(
     private fun addHeatmap(call: MethodCall) {
         val id = call.argument<String>("id")
             ?: throw IllegalArgumentException("id required")
+
         @Suppress("UNCHECKED_CAST")
         val points = call.argument<List<Map<String, Any?>>>("points")
             ?: throw IllegalArgumentException("points required")
@@ -820,6 +881,7 @@ class GaodeMapPlatformView(
     private fun addMultiPoint(call: MethodCall) {
         val id = call.argument<String>("id")
             ?: throw IllegalArgumentException("id required")
+
         @Suppress("UNCHECKED_CAST")
         val points = GaodeMapParsing.latLngList(call.argument("points"))
         if (points.isEmpty()) throw IllegalArgumentException("points required")
@@ -906,7 +968,14 @@ class GaodeMapPlatformView(
         }
         emit(
             "cameraMove",
-            mapOf("position" to GaodeMapParsing.cameraMap(position.target, position.zoom, position.bearing, position.tilt)),
+            mapOf(
+                "position" to GaodeMapParsing.cameraMap(
+                    position.target,
+                    position.zoom,
+                    position.bearing,
+                    position.tilt
+                )
+            ),
         )
     }
 
@@ -914,7 +983,14 @@ class GaodeMapPlatformView(
         cameraMoving = false
         emit(
             "cameraMoveEnd",
-            mapOf("position" to GaodeMapParsing.cameraMap(position.target, position.zoom, position.bearing, position.tilt)),
+            mapOf(
+                "position" to GaodeMapParsing.cameraMap(
+                    position.target,
+                    position.zoom,
+                    position.bearing,
+                    position.tilt
+                )
+            ),
         )
     }
 

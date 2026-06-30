@@ -35,7 +35,10 @@ class LocationClientManager(
                         if (location?.errorCode != 0) {
                             callback(
                                 Result.failure(
-                                    Exception(location?.errorInfo ?: "Location failed (${location?.errorCode})"),
+                                    Exception(
+                                        location?.errorInfo
+                                            ?: "Location failed (${location?.errorCode})"
+                                    ),
                                 ),
                             )
                         } else {
@@ -59,7 +62,10 @@ class LocationClientManager(
                         if (location?.errorCode != 0) {
                             callback(
                                 Result.failure(
-                                    Exception(location?.errorInfo ?: "Reverse geocode failed (${location?.errorCode})"),
+                                    Exception(
+                                        location?.errorInfo
+                                            ?: "Reverse geocode failed (${location?.errorCode})"
+                                    ),
                                 ),
                             )
                         } else {

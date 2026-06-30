@@ -47,6 +47,7 @@ object LocationOptionsMapper {
         when (args["protocol"] as? String) {
             "https" ->
                 AMapLocationClientOption.setLocationProtocol(AMapLocationProtocol.HTTPS)
+
             else ->
                 AMapLocationClientOption.setLocationProtocol(AMapLocationProtocol.HTTP)
         }
