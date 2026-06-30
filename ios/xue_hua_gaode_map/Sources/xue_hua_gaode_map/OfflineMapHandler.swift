@@ -78,7 +78,28 @@ final class OfflineMapHandler {
     }
 
     func destroy() {
+        pauseActiveDownloads()
         eventSink = nil
+    }
+
+    private func pauseActiveDownloads() {
+        guard let offlineMap = MAOfflineMap.shared() else { return }
+        for item in allOfflineItems(in: offlineMap) where item.itemStatus == .cached {
+            offlineMap.pause(item)
+        }
+    }
+
+    private func allOfflineItems(in offlineMap: MAOfflineMap) -> [MAOfflineItem] {
+        var items: [MAOfflineItem] = []
+        for province in offlineMap.provinces {
+            items.append(province)
+            for case let city as MAOfflineItem in province.cities {
+                items.append(city)
+            }
+        }
+        items.append(contentsOf: offlineMap.municipalities)
+        items.append(contentsOf: offlineMap.cities)
+        return items
     }
 
     private func download(item: MAOfflineItem) {

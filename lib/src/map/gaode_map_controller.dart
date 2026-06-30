@@ -40,23 +40,35 @@ class GaodeMapController {
   final MethodChannel _channel;
   final int _viewId;
   bool _isDisposed = false;
+  bool _isDisposing = false;
   GaodeManagedEventStream<GaodeMapEvent>? _managedEvents;
 
-  /// Marks this controller invalid after its [GaodeMapView] is removed.
-  void markDisposed() {
+  /// Releases the map event stream and marks this controller invalid.
+  ///
+  /// Called automatically when [GaodeMapView] is removed from the tree.
+  Future<void> dispose() async {
     if (_isDisposed) {
       return;
     }
+    _isDisposing = true;
     _isDisposed = true;
     final events = _managedEvents;
     _managedEvents = null;
-    if (events != null) {
-      unawaited(events.close());
+    try {
+      await events?.close();
+    } finally {
+      _isDisposing = false;
     }
   }
 
+  /// @nodoc
+  @Deprecated('Use dispose()')
+  void markDisposed() {
+    unawaited(dispose());
+  }
+
   void _ensureActive() {
-    if (_isDisposed) {
+    if (_isDisposing || _isDisposed) {
       throw StateError('GaodeMapController is no longer valid');
     }
   }

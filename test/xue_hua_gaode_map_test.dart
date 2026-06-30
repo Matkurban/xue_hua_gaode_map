@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xue_hua_gaode_map/xue_hua_gaode_map.dart';
@@ -344,6 +346,48 @@ void main() {
 
     final client = LocationClient();
     await Future.wait([client.dispose(), client.dispose()]);
+
+    setHandler(channel, null);
+  });
+
+  test('LocationClient.dispose retries after native destroy failure', () async {
+    const channel = MethodChannel('xue_hua_gaode_map');
+    var destroyAttempts = 0;
+    setHandler(channel, (MethodCall call) async {
+      if (call.method == 'location#destroy') {
+        destroyAttempts++;
+        if (destroyAttempts == 1) {
+          throw PlatformException(code: 'LOCATION_ERROR', message: 'destroy failed');
+        }
+      }
+      return null;
+    });
+
+    final client = LocationClient();
+    await expectLater(client.dispose(), throwsA(isA<GaodeException>()));
+    expect(destroyAttempts, 1);
+    await client.dispose();
+    expect(destroyAttempts, 2);
+    expect(() => client.getLocation(), throwsA(isA<StateError>()));
+
+    setHandler(channel, null);
+  });
+
+  test('LocationClient remains usable when dispose destroy fails', () async {
+    const channel = MethodChannel('xue_hua_gaode_map');
+    var failDestroy = true;
+    setHandler(channel, (MethodCall call) async {
+      if (call.method == 'location#destroy' && failDestroy) {
+        failDestroy = false;
+        throw PlatformException(code: 'LOCATION_ERROR', message: 'destroy failed');
+      }
+      return null;
+    });
+
+    final client = LocationClient();
+    await expectLater(client.dispose(), throwsA(isA<GaodeException>()));
+    expect(client.locationStream, isA<Stream<LocationResult>>());
+    await client.start();
 
     setHandler(channel, null);
   });
@@ -708,12 +752,12 @@ void main() {
     setHandler(channel, null);
   });
 
-  test('GaodeMapController throws after markDisposed', () async {
+  test('GaodeMapController throws after dispose', () async {
     const channel = MethodChannel('xue_hua_gaode_map/map_3');
     setHandler(channel, (MethodCall call) async => null);
 
     final controller = GaodeMapController.init(3);
-    controller.markDisposed();
+    await controller.dispose();
 
     expect(
       () => controller.zoomIn(),
@@ -725,6 +769,34 @@ void main() {
     );
 
     setHandler(channel, null);
+  });
+
+  test('GaodeMapController dispose completes event stream', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    const codec = StandardMethodCodec();
+    const viewId = 7;
+    const channelName = 'xue_hua_gaode_map/map_events_$viewId';
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMessageHandler(channelName, (ByteData? message) async {
+      final call = codec.decodeMethodCall(message!);
+      switch (call.method) {
+        case 'listen':
+          return codec.encodeSuccessEnvelope(null);
+        case 'cancel':
+          return codec.encodeSuccessEnvelope(null);
+      }
+      return null;
+    });
+
+    final controller = GaodeMapController.init(viewId);
+    final done = Completer<void>();
+    controller.events.listen(null, onDone: done.complete);
+    await controller.dispose();
+    await done.future.timeout(const Duration(seconds: 1));
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMessageHandler(channelName, null);
   });
 
   test('OfflineMapClient dispose only destroys native when last instance goes away', () async {
@@ -743,6 +815,32 @@ void main() {
     expect(destroyCalls, isEmpty);
     await second.dispose();
     expect(destroyCalls, hasLength(1));
+
+    setHandler(channel, null);
+  });
+
+  test('OfflineMapClient dispose retries when native destroy fails', () async {
+    const channel = MethodChannel('xue_hua_gaode_map');
+    var destroyAttempts = 0;
+    setHandler(channel, (MethodCall call) async {
+      if (call.method == 'offlineMap#destroy') {
+        destroyAttempts++;
+        if (destroyAttempts == 1) {
+          throw PlatformException(code: 'OFFLINE_ERROR', message: 'destroy failed');
+        }
+      }
+      if (call.method == 'offlineMap#getCityList') {
+        return <dynamic>[];
+      }
+      return null;
+    });
+
+    final client = OfflineMapClient();
+    await expectLater(client.dispose(), throwsA(isA<GaodeException>()));
+    expect(destroyAttempts, 1);
+    await client.getCityList();
+    await client.dispose();
+    expect(destroyAttempts, 2);
 
     setHandler(channel, null);
   });

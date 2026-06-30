@@ -302,7 +302,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil))
             return
         }
-        LocationClientRegistry.shared.getOrCreate(clientId: clientId).stop()
+        LocationClientRegistry.shared.get(clientId: clientId)?.stop()
         result(nil)
     }
     
@@ -472,7 +472,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil))
             return
         }
-        GeofenceClientRegistry.shared.getOrCreate(clientId: clientId).pause()
+        GeofenceClientRegistry.shared.get(clientId: clientId)?.pause()
         result(nil)
     }
     
@@ -482,7 +482,7 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
             result(FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil))
             return
         }
-        GeofenceClientRegistry.shared.getOrCreate(clientId: clientId).resume()
+        GeofenceClientRegistry.shared.get(clientId: clientId)?.resume()
         result(nil)
     }
     
@@ -498,7 +498,9 @@ public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
 
 private final class LocationStreamHandler: NSObject, FlutterStreamHandler {
     func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
-        guard let clientId = arguments as? String else { return nil }
+        guard let clientId = arguments as? String else {
+            return FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil)
+        }
         LocationClientRegistry.shared.getOrCreate(clientId: clientId).setEventSink(events)
         return nil
     }
@@ -512,7 +514,9 @@ private final class LocationStreamHandler: NSObject, FlutterStreamHandler {
 
 private final class GeofenceStreamHandler: NSObject, FlutterStreamHandler {
     func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
-        guard let clientId = arguments as? String else { return nil }
+        guard let clientId = arguments as? String else {
+            return FlutterError(code: "INVALID_ARGUMENT", message: "clientId required", details: nil)
+        }
         GeofenceClientRegistry.shared.getOrCreate(clientId: clientId).setEventSink(events)
         return nil
     }

@@ -938,14 +938,16 @@ class GaodeMapPlatformView(
         aMap.getMapScreenShot(
             object : OnMapScreenShotListener {
                 override fun onMapScreenShot(bitmap: Bitmap?) {
-                    if (!replied.compareAndSet(false, true)) return
-                    if (bitmap == null) {
-                        result.error("SNAPSHOT_FAILED", "bitmap is null", null)
-                        return
+                    mainHandler.post {
+                        if (!replied.compareAndSet(false, true)) return@post
+                        if (bitmap == null) {
+                            result.error("SNAPSHOT_FAILED", "bitmap is null", null)
+                            return@post
+                        }
+                        val stream = ByteArrayOutputStream()
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                        result.success(stream.toByteArray())
                     }
-                    val stream = ByteArrayOutputStream()
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
-                    result.success(stream.toByteArray())
                 }
 
                 override fun onMapScreenShot(bitmap: Bitmap?, status: Int) {

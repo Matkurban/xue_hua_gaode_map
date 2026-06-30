@@ -121,6 +121,7 @@ final class LocationClientManager: NSObject, AMapLocationManagerDelegate {
         reGeoSearchHandler?.reverseGeocode(
             latitude: latitude,
             longitude: longitude,
+            timeoutSeconds: TimeInterval(ensureManager().reGeocodeTimeout),
             result: wrappedResult
         )
     }

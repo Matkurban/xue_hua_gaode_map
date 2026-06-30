@@ -7,9 +7,15 @@ import Flutter
 final class ReGeoSearchHandler: NSObject, AMapSearchDelegate {
     private var searchAPI: AMapSearchAPI?
     private var pendingResult: FlutterResult?
+    private var timeoutWorkItem: DispatchWorkItem?
     private let lock = NSLock()
-    
-    func reverseGeocode(latitude: Double, longitude: Double, result: @escaping FlutterResult) {
+
+    func reverseGeocode(
+        latitude: Double,
+        longitude: Double,
+        timeoutSeconds: TimeInterval = 5,
+        result: @escaping FlutterResult
+    ) {
         lock.lock()
         if pendingResult != nil {
             lock.unlock()
@@ -24,7 +30,7 @@ final class ReGeoSearchHandler: NSObject, AMapSearchDelegate {
         }
         pendingResult = result
         lock.unlock()
-        
+
         if searchAPI == nil {
             searchAPI = AMapSearchAPI()
             searchAPI?.delegate = self
@@ -36,8 +42,9 @@ final class ReGeoSearchHandler: NSObject, AMapSearchDelegate {
         )
         request.requireExtension = true
         searchAPI?.aMapReGoecodeSearch(request)
+        scheduleTimeout(seconds: max(timeoutSeconds, 5))
     }
-    
+
     func onReGeocodeSearchDone(
         _ request: AMapReGeocodeSearchRequest!,
         response: AMapReGeocodeSearchResponse!
@@ -49,7 +56,8 @@ final class ReGeoSearchHandler: NSObject, AMapSearchDelegate {
         }
         pendingResult = nil
         lock.unlock()
-        
+        cancelTimeout()
+
         guard let regeocode = response.regeocode,
               let location = request.location else {
             DispatchQueue.main.async {
@@ -68,7 +76,7 @@ final class ReGeoSearchHandler: NSObject, AMapSearchDelegate {
         )
         DispatchQueue.main.async { callback(map) }
     }
-    
+
     func aMapSearchRequest(_ request: Any!, didFailWithError error: Error!) {
         lock.lock()
         guard let callback = pendingResult else {
@@ -77,6 +85,7 @@ final class ReGeoSearchHandler: NSObject, AMapSearchDelegate {
         }
         pendingResult = nil
         lock.unlock()
+        cancelTimeout()
         let nsError = error as NSError?
         DispatchQueue.main.async {
             callback(FlutterError(
@@ -86,17 +95,48 @@ final class ReGeoSearchHandler: NSObject, AMapSearchDelegate {
             ))
         }
     }
-    
+
     func cancel(with error: Error? = nil) {
         lock.lock()
         let callback = pendingResult
         pendingResult = nil
         lock.unlock()
+        cancelTimeout()
         if let callback = callback {
             let message = (error as NSError?)?.localizedDescription ?? "Operation cancelled"
             DispatchQueue.main.async {
                 callback(FlutterError(code: "LOCATION_ERROR", message: message, details: nil))
             }
+        }
+    }
+
+    private func scheduleTimeout(seconds: TimeInterval) {
+        cancelTimeout()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.handleTimeout()
+        }
+        timeoutWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: workItem)
+    }
+
+    private func cancelTimeout() {
+        timeoutWorkItem?.cancel()
+        timeoutWorkItem = nil
+    }
+
+    private func handleTimeout() {
+        lock.lock()
+        let callback = pendingResult
+        pendingResult = nil
+        lock.unlock()
+        guard let callback = callback else { return }
+        timeoutWorkItem = nil
+        DispatchQueue.main.async {
+            callback(FlutterError(
+                code: "REGEOCODE_ERROR",
+                message: "Reverse geocode timed out",
+                details: nil
+            ))
         }
     }
 }

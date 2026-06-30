@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -40,7 +42,8 @@ class _GaodeMapViewState extends State<GaodeMapView> {
 
   @override
   void dispose() {
-    _controller?.markDisposed();
+    unawaited(_controller?.dispose());
+    _controller = null;
     super.dispose();
   }
 

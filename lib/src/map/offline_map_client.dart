@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 import '../core/gaode_channel.dart';
+import '../core/gaode_client_dispose.dart';
 import '../core/gaode_exception.dart';
 import '../core/gaode_managed_event_stream.dart';
 import 'offline_map_city.dart';
@@ -27,9 +28,7 @@ class OfflineMapClient {
   static int _refCount = 0;
   static GaodeManagedEventStream<OfflineMapProgressEvent>? _sharedProgressEvents;
 
-  bool _disposed = false;
-  bool _disposing = false;
-  Future<void>? _disposeFuture;
+  final GaodeClientDispose _lifecycle = GaodeClientDispose();
 
   /// Optional storage directory for offline map data (Android).
   ///
@@ -124,30 +123,27 @@ class OfflineMapClient {
   }
 
   Future<void> dispose() {
-    _disposeFuture ??= _disposeImpl();
-    return _disposeFuture!;
+    return _lifecycle.run(_disposeImpl);
   }
 
   Future<void> _disposeImpl() async {
-    if (_disposed) return;
-    _disposing = true;
+    if (_lifecycle.isDisposed) return;
+    _refCount--;
+    final isLastInstance = _refCount <= 0;
     try {
-      _disposed = true;
-      _refCount--;
-      if (_refCount <= 0) {
+      if (isLastInstance) {
         _refCount = 0;
         await _sharedProgressEvents?.close();
         _sharedProgressEvents = null;
         await invokeGaodeMethod<void>(_channel, 'offlineMap#destroy');
       }
-    } finally {
-      _disposing = false;
+    } catch (error) {
+      _refCount++;
+      rethrow;
     }
   }
 
   void _ensureNotDisposed() {
-    if (_disposing || _disposed) {
-      throw StateError('OfflineMapClient has been disposed');
-    }
+    _lifecycle.ensureActive('OfflineMapClient');
   }
 }

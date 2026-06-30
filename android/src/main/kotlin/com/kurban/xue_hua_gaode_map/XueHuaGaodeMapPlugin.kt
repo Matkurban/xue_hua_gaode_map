@@ -47,7 +47,11 @@ class XueHuaGaodeMapPlugin :
         locationEventChannel.setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                    val clientId = arguments as? String ?: return
+                    val clientId = arguments as? String
+                    if (clientId == null) {
+                        events?.error("INVALID_ARGUMENT", "clientId required", null)
+                        return
+                    }
                     LocationClientRegistry.getOrCreate(applicationContext, clientId)
                         .setEventSink(events)
                 }
@@ -63,7 +67,11 @@ class XueHuaGaodeMapPlugin :
         geofenceEventChannel.setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                    val clientId = arguments as? String ?: return
+                    val clientId = arguments as? String
+                    if (clientId == null) {
+                        events?.error("INVALID_ARGUMENT", "clientId required", null)
+                        return
+                    }
                     GeofenceClientRegistry.getOrCreate(applicationContext, clientId)
                         .setEventSink(events)
                 }
@@ -335,7 +343,7 @@ class XueHuaGaodeMapPlugin :
     private fun handleLocationStop(call: MethodCall, result: Result) {
         val id =
             clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
-        LocationClientRegistry.getOrCreate(applicationContext, id).stop()
+        LocationClientRegistry.get(applicationContext, id)?.stop()
         result.success(null)
     }
 
@@ -385,6 +393,7 @@ class XueHuaGaodeMapPlugin :
         val id =
             clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         val actions = call.argument<List<String>>("actions") ?: listOf("enter")
+        // allowsBackgroundLocationUpdates is iOS-only; Android GeoFence SDK has no equivalent.
         runPrivacyGated(result) {
             GeofenceClientRegistry.getOrCreate(applicationContext, id).setActiveActions(actions)
             result.success(null)
@@ -547,7 +556,7 @@ class XueHuaGaodeMapPlugin :
         val id =
             clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         runPrivacyGated(result) {
-            GeofenceClientRegistry.getOrCreate(applicationContext, id).pause()
+            GeofenceClientRegistry.get(applicationContext, id)?.pause()
             result.success(null)
         }
     }
@@ -556,7 +565,7 @@ class XueHuaGaodeMapPlugin :
         val id =
             clientId(call) ?: return result.error("INVALID_ARGUMENT", "clientId required", null)
         runPrivacyGated(result) {
-            GeofenceClientRegistry.getOrCreate(applicationContext, id).resume()
+            GeofenceClientRegistry.get(applicationContext, id)?.resume()
             result.success(null)
         }
     }

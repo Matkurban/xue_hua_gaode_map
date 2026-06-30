@@ -9,6 +9,22 @@ All notable changes to this project are documented in this file.
 - Dart client lifecycle: dispose now blocks in-flight API calls, cancels native
   `EventChannel` subscriptions, and closes broadcast streams on
   `LocationClient`, `GeofenceClient`, and `OfflineMapClient`.
+- `GaodeClientDispose` centralizes client teardown with retry on native failure
+  and consistent disposed marking across location, geofence, and offline map
+  clients.
+- `OfflineMapClient` marks instances disposed only after shared native destroy
+  succeeds; failed destroy restores the reference count for retry.
+- `GaodeMapController.dispose` awaits managed event stream teardown (replaces
+  fire-and-forget `markDisposed`).
+- Android `takeSnapshot` replies on the main thread (matches iOS).
+- iOS reverse geocode times out and releases the operation lock (matches
+  Android).
+- `location#stop` and geofence `pause`/`resume` no longer recreate destroyed
+  native registry entries.
+- Location and geofence `EventChannel` subscriptions report
+  `INVALID_ARGUMENT` when `clientId` is missing.
+- iOS offline map `destroy` pauses active downloads before clearing the event
+  sink.
 - Android search APIs now enforce Gaode privacy compliance before invoking the
   Search SDK.
 - Android map events are marshalled onto the main thread before reaching Flutter.
@@ -36,8 +52,10 @@ All notable changes to this project are documented in this file.
   now throw `ArgumentError`.
 - Geofence add operations eagerly subscribe to the event stream so
   `createFinished` events are not dropped.
-- Client `dispose` clears the in-flight guard when native teardown fails so
-  callers can retry.
+- Client `dispose` clears the cached dispose future when native teardown fails
+  so callers can retry.
+- `GeofenceClient.setActiveActions` documents that
+  `allowsBackgroundLocationUpdates` is iOS-only.
 - Android offline download `STOP` status now maps to `cancelled` (matches iOS).
 
 ## 1.1.1

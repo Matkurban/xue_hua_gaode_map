@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 import '../core/gaode_channel.dart';
+import '../core/gaode_client_dispose.dart';
 import '../core/gaode_coordinate.dart';
 import '../core/gaode_exception.dart';
 import '../core/gaode_managed_event_stream.dart';
@@ -33,17 +34,15 @@ class GeofenceClient {
 
   final String _clientId;
   final bool _ownsClientIdReservation;
+  final GaodeClientDispose _lifecycle = GaodeClientDispose();
   GaodeManagedEventStream<GeofenceEvent>? _geofenceEvents;
-  bool _disposed = false;
-  bool _disposing = false;
-  Future<void>? _disposeFuture;
 
   String get clientId => _clientId;
 
   /// Configure which fence transitions emit events.
   ///
-  /// Set [allowsBackgroundLocationUpdates] to `true` only when the host app
-  /// has configured iOS background location modes and the required permissions.
+  /// [allowsBackgroundLocationUpdates] is honored on iOS only. On Android the
+  /// flag is ignored because the GeoFence SDK has no equivalent setting.
   Future<void> setActiveActions(
     Set<GeofenceAction> actions, {
     bool allowsBackgroundLocationUpdates = false,
@@ -188,35 +187,26 @@ class GeofenceClient {
   }
 
   Future<void> dispose() {
-    _disposeFuture ??= _disposeImpl();
-    return _disposeFuture!;
+    return _lifecycle.run(_disposeImpl);
   }
 
   Future<void> _disposeImpl() async {
-    if (_disposed) return;
-    _disposing = true;
-    try {
-      await _geofenceEvents?.close();
-      _geofenceEvents = null;
-      await invokeGaodeMethod<void>(_channel, 'geofence#removeAll', {
-        'clientId': _clientId,
-      });
-      await invokeGaodeMethod<void>(_channel, 'geofence#destroy', {
-        'clientId': _clientId,
-      });
-      _disposed = true;
-      if (_ownsClientIdReservation) {
-        _reservedClientIds.remove(_clientId);
-      }
-    } finally {
-      _disposing = false;
+    if (_lifecycle.isDisposed) return;
+    await _geofenceEvents?.close();
+    _geofenceEvents = null;
+    await invokeGaodeMethod<void>(_channel, 'geofence#removeAll', {
+      'clientId': _clientId,
+    });
+    await invokeGaodeMethod<void>(_channel, 'geofence#destroy', {
+      'clientId': _clientId,
+    });
+    if (_ownsClientIdReservation) {
+      _reservedClientIds.remove(_clientId);
     }
   }
 
   void _ensureNotDisposed() {
-    if (_disposing || _disposed) {
-      throw StateError('GeofenceClient has been disposed');
-    }
+    _lifecycle.ensureActive('GeofenceClient');
   }
 
   static String _actionName(GeofenceAction action) {
