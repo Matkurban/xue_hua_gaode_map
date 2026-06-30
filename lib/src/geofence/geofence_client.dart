@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../core/gaode_channel.dart';
 import '../core/gaode_coordinate.dart';
 import '../core/gaode_exception.dart';
+import '../core/gaode_managed_event_stream.dart';
 import 'geofence_action.dart';
 import 'geofence_event.dart';
 
@@ -14,9 +15,15 @@ import 'geofence_event.dart';
 /// [geofenceStream] `createFinished` events.
 class GeofenceClient {
   GeofenceClient({String? clientId})
-    : _clientId = clientId ?? _nextClientId().toString();
+    : _clientId = clientId ?? _nextClientId().toString(),
+      _ownsClientIdReservation = clientId != null {
+    if (_ownsClientIdReservation && !_reservedClientIds.add(clientId!)) {
+      throw ArgumentError.value(clientId, 'clientId', 'is already in use');
+    }
+  }
 
   static int _idCounter = 0;
+  static final Set<String> _reservedClientIds = <String>{};
   static int _nextClientId() => _idCounter++;
 
   static const MethodChannel _channel = MethodChannel('xue_hua_gaode_map');
@@ -25,8 +32,10 @@ class GeofenceClient {
   );
 
   final String _clientId;
-  Stream<GeofenceEvent>? _geofenceStream;
+  final bool _ownsClientIdReservation;
+  GaodeManagedEventStream<GeofenceEvent>? _geofenceEvents;
   bool _disposed = false;
+  bool _disposing = false;
   Future<void>? _disposeFuture;
 
   String get clientId => _clientId;
@@ -55,6 +64,7 @@ class GeofenceClient {
     required String customId,
   }) async {
     _ensureNotDisposed();
+    geofenceStream;
     await invokeGaodeMethod<void>(_channel, 'geofence#addCircle', {
       'clientId': _clientId,
       'latitude': center.latitude,
@@ -71,6 +81,7 @@ class GeofenceClient {
     required String customId,
   }) async {
     _ensureNotDisposed();
+    geofenceStream;
     await invokeGaodeMethod<void>(_channel, 'geofence#addPolygon', {
       'clientId': _clientId,
       'points': points.map((p) => p.toMap()).toList(),
@@ -86,6 +97,7 @@ class GeofenceClient {
     required String customId,
   }) async {
     _ensureNotDisposed();
+    geofenceStream;
     await invokeGaodeMethod<void>(_channel, 'geofence#addPoiKeyword', {
       'clientId': _clientId,
       'keyword': keyword,
@@ -105,6 +117,7 @@ class GeofenceClient {
     required String customId,
   }) async {
     _ensureNotDisposed();
+    geofenceStream;
     await invokeGaodeMethod<void>(_channel, 'geofence#addPoiAround', {
       'clientId': _clientId,
       'keyword': keyword,
@@ -122,6 +135,7 @@ class GeofenceClient {
     required String customId,
   }) async {
     _ensureNotDisposed();
+    geofenceStream;
     await invokeGaodeMethod<void>(_channel, 'geofence#addDistrict', {
       'clientId': _clientId,
       'keyword': keyword,
@@ -160,15 +174,17 @@ class GeofenceClient {
 
   Stream<GeofenceEvent> get geofenceStream {
     _ensureNotDisposed();
-    _geofenceStream ??= _eventChannel.receiveBroadcastStream(_clientId).map((
-      event,
-    ) {
-      if (event is! Map) {
-        throw GaodeException('Invalid geofence event: $event');
-      }
-      return GeofenceEvent.fromMap(event);
-    });
-    return _geofenceStream!;
+    _geofenceEvents ??= GaodeManagedEventStream<GeofenceEvent>(
+      channel: _eventChannel,
+      arguments: _clientId,
+      transform: (event) {
+        if (event is! Map) {
+          throw GaodeException('Invalid geofence event: $event');
+        }
+        return GeofenceEvent.fromMap(event);
+      },
+    );
+    return _geofenceEvents!.stream;
   }
 
   Future<void> dispose() {
@@ -178,16 +194,27 @@ class GeofenceClient {
 
   Future<void> _disposeImpl() async {
     if (_disposed) return;
-    await removeAll();
-    _disposed = true;
-    await invokeGaodeMethod<void>(_channel, 'geofence#destroy', {
-      'clientId': _clientId,
-    });
-    _geofenceStream = null;
+    _disposing = true;
+    try {
+      await _geofenceEvents?.close();
+      _geofenceEvents = null;
+      await invokeGaodeMethod<void>(_channel, 'geofence#removeAll', {
+        'clientId': _clientId,
+      });
+      await invokeGaodeMethod<void>(_channel, 'geofence#destroy', {
+        'clientId': _clientId,
+      });
+      _disposed = true;
+      if (_ownsClientIdReservation) {
+        _reservedClientIds.remove(_clientId);
+      }
+    } finally {
+      _disposing = false;
+    }
   }
 
   void _ensureNotDisposed() {
-    if (_disposed) {
+    if (_disposing || _disposed) {
       throw StateError('GeofenceClient has been disposed');
     }
   }

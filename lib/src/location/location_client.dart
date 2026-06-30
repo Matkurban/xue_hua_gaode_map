@@ -5,15 +5,22 @@ import 'package:flutter/services.dart';
 import '../core/gaode_channel.dart';
 import '../core/gaode_coordinate.dart';
 import '../core/gaode_exception.dart';
+import '../core/gaode_managed_event_stream.dart';
 import 'location_options.dart';
 import 'location_result.dart';
 
 /// Amap location client supporting single and continuous positioning.
 class LocationClient {
   LocationClient({String? clientId})
-    : _clientId = clientId ?? _nextClientId().toString();
+    : _clientId = clientId ?? _nextClientId().toString(),
+      _ownsClientIdReservation = clientId != null {
+    if (_ownsClientIdReservation && !_reservedClientIds.add(clientId!)) {
+      throw ArgumentError.value(clientId, 'clientId', 'is already in use');
+    }
+  }
 
   static int _idCounter = 0;
+  static final Set<String> _reservedClientIds = <String>{};
   static int _nextClientId() => _idCounter++;
 
   static const MethodChannel _channel = MethodChannel('xue_hua_gaode_map');
@@ -22,9 +29,11 @@ class LocationClient {
   );
 
   final String _clientId;
-  Stream<LocationResult>? _locationStream;
+  final bool _ownsClientIdReservation;
+  GaodeManagedEventStream<LocationResult>? _locationEvents;
   LocationOptions _options = const LocationOptions();
   bool _disposed = false;
+  bool _disposing = false;
   Future<void>? _disposeFuture;
 
   String get clientId => _clientId;
@@ -60,6 +69,7 @@ class LocationClient {
   /// Start continuous location updates. Listen via [locationStream].
   Future<void> start() async {
     _ensureNotDisposed();
+    locationStream;
     await invokeGaodeMethod<void>(_channel, 'location#setOptions', {
       'clientId': _clientId,
       'options': _options.copyWith(onceLocation: false).toMap(),
@@ -98,24 +108,24 @@ class LocationClient {
 
   Stream<LocationResult> get locationStream {
     _ensureNotDisposed();
-    _locationStream ??= _eventChannel
-        .receiveBroadcastStream(_clientId)
-        .map((event) {
-          if (event is! Map) {
-            throw GaodeException('Invalid location event: $event');
-          }
-          return LocationResult.fromMap(event);
-        })
-        .map((location) {
-          if (!location.isSuccess) {
-            throw GaodeException(
-              location.errorInfo ?? 'Location update failed',
-              code: location.errorCode,
-            );
-          }
-          return location;
-        });
-    return _locationStream!;
+    _locationEvents ??= GaodeManagedEventStream<LocationResult>(
+      channel: _eventChannel,
+      arguments: _clientId,
+      transform: (event) {
+        if (event is! Map) {
+          throw GaodeException('Invalid location event: $event');
+        }
+        final location = LocationResult.fromMap(event);
+        if (!location.isSuccess) {
+          throw GaodeException(
+            location.errorInfo ?? 'Location update failed',
+            code: location.errorCode,
+          );
+        }
+        return location;
+      },
+    );
+    return _locationEvents!.stream;
   }
 
   Future<void> dispose() {
@@ -125,16 +135,25 @@ class LocationClient {
 
   Future<void> _disposeImpl() async {
     if (_disposed) return;
-    await stop();
-    _disposed = true;
-    await invokeGaodeMethod<void>(_channel, 'location#destroy', {
-      'clientId': _clientId,
-    });
-    _locationStream = null;
+    _disposing = true;
+    try {
+      await _locationEvents?.close();
+      _locationEvents = null;
+      await stop();
+      await invokeGaodeMethod<void>(_channel, 'location#destroy', {
+        'clientId': _clientId,
+      });
+      _disposed = true;
+      if (_ownsClientIdReservation) {
+        _reservedClientIds.remove(_clientId);
+      }
+    } finally {
+      _disposing = false;
+    }
   }
 
   void _ensureNotDisposed() {
-    if (_disposed) {
+    if (_disposing || _disposed) {
       throw StateError('LocationClient has been disposed');
     }
   }

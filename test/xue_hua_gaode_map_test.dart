@@ -637,6 +637,151 @@ void main() {
     expect(loc.bearing, 90.0);
   });
 
+  test('GeofenceClient throws after dispose', () async {
+    const channel = MethodChannel('xue_hua_gaode_map');
+    setHandler(channel, (MethodCall call) async => null);
+
+    final client = GeofenceClient();
+    await client.dispose();
+
+    expect(() => client.addCircle(
+      center: const GaodeCoordinate(latitude: 39.9, longitude: 116.4),
+      radius: 500,
+      customId: 'office',
+    ), throwsA(isA<StateError>()));
+
+    setHandler(channel, null);
+  });
+
+  test('LocationClient rejects API calls while dispose is in flight', () async {
+    const channel = MethodChannel('xue_hua_gaode_map');
+    setHandler(channel, (MethodCall call) async {
+      if (call.method == 'location#stop') {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+      return null;
+    });
+
+    final client = LocationClient();
+    final disposeFuture = client.dispose();
+    expect(() => client.getLocation(), throwsA(isA<StateError>()));
+    await disposeFuture;
+
+    setHandler(channel, null);
+  });
+
+  test('OfflineMapClient concurrent dispose is idempotent', () async {
+    const channel = MethodChannel('xue_hua_gaode_map');
+    final destroyCalls = <String>[];
+    setHandler(channel, (MethodCall call) async {
+      destroyCalls.add(call.method);
+      return null;
+    });
+
+    final client = OfflineMapClient();
+    await Future.wait([client.dispose(), client.dispose()]);
+
+    expect(destroyCalls.where((m) => m == 'offlineMap#destroy'), hasLength(1));
+
+    setHandler(channel, null);
+  });
+
+  test('Geocode.fromMap throws GaodeException for missing coordinates', () {
+    expect(
+      () => Geocode.fromMap({'formattedAddress': 'test'}),
+      throwsA(isA<GaodeException>()),
+    );
+  });
+
+  test('SearchClient inputTips rejects malformed entries', () async {
+    const channel = MethodChannel('xue_hua_gaode_map');
+    setHandler(channel, (MethodCall call) async {
+      return ['not-a-map'];
+    });
+
+    const search = SearchClient();
+    expect(
+      () => search.inputTips(keyword: 'coffee'),
+      throwsA(isA<GaodeException>()),
+    );
+
+    setHandler(channel, null);
+  });
+
+  test('GaodeMapController throws after markDisposed', () async {
+    const channel = MethodChannel('xue_hua_gaode_map/map_3');
+    setHandler(channel, (MethodCall call) async => null);
+
+    final controller = GaodeMapController.init(3);
+    controller.markDisposed();
+
+    expect(
+      () => controller.zoomIn(),
+      throwsA(isA<StateError>()),
+    );
+    expect(
+      () => controller.events,
+      throwsA(isA<StateError>()),
+    );
+
+    setHandler(channel, null);
+  });
+
+  test('OfflineMapClient dispose only destroys native when last instance goes away', () async {
+    const channel = MethodChannel('xue_hua_gaode_map');
+    final destroyCalls = <String>[];
+    setHandler(channel, (MethodCall call) async {
+      if (call.method == 'offlineMap#destroy') {
+        destroyCalls.add(call.method);
+      }
+      return null;
+    });
+
+    final first = OfflineMapClient();
+    final second = OfflineMapClient();
+    await first.dispose();
+    expect(destroyCalls, isEmpty);
+    await second.dispose();
+    expect(destroyCalls, hasLength(1));
+
+    setHandler(channel, null);
+  });
+
+  test('LocationClient rejects duplicate explicit clientId', () async {
+    const channel = MethodChannel('xue_hua_gaode_map');
+    setHandler(channel, (MethodCall call) async => null);
+
+    final first = LocationClient(clientId: 'shared-location');
+    expect(
+      () => LocationClient(clientId: 'shared-location'),
+      throwsA(isA<ArgumentError>()),
+    );
+    await first.dispose();
+
+    setHandler(channel, null);
+  });
+
+  test('GeofenceClient rejects duplicate explicit clientId', () async {
+    const channel = MethodChannel('xue_hua_gaode_map');
+    setHandler(channel, (MethodCall call) async => null);
+
+    final first = GeofenceClient(clientId: 'shared-geofence');
+    expect(
+      () => GeofenceClient(clientId: 'shared-geofence'),
+      throwsA(isA<ArgumentError>()),
+    );
+    await first.dispose();
+
+    setHandler(channel, null);
+  });
+
+  test('GeofenceEvent.fromMap throws GaodeException for malformed payload', () {
+    expect(
+      () => GeofenceEvent.fromMap({'type': 'trigger', 'status': 'bad'}),
+      throwsA(isA<GaodeException>()),
+    );
+  });
+
   test('GaodeMapEvent.fromMap parses userTrackingModeChange', () {
     final event = GaodeMapEvent.fromMap({
       'type': 'userTrackingModeChange',

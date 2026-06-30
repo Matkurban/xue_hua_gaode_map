@@ -41,7 +41,10 @@ class SearchClient {
         'pageSize': pageSize,
       },
     );
-    return PoiSearchResult.fromMap(result ?? const {});
+    if (result == null) {
+      throw const GaodeException('POI search returned no result');
+    }
+    return PoiSearchResult.fromMap(result);
   }
 
   /// POI search around a center coordinate within [radius] meters.
@@ -66,7 +69,10 @@ class SearchClient {
         'pageSize': pageSize,
       },
     );
-    return PoiSearchResult.fromMap(result ?? const {});
+    if (result == null) {
+      throw const GaodeException('POI around search returned no result');
+    }
+    return PoiSearchResult.fromMap(result);
   }
 
   /// Autocomplete suggestions for [keyword], optionally scoped to a [city].
@@ -82,9 +88,17 @@ class SearchClient {
       'search#inputTips',
       {'keyword': keyword, 'city': city},
     );
-    return (result ?? const [])
-        .map((e) => InputTip.fromMap(e as Map<dynamic, dynamic>))
-        .toList(growable: false);
+    if (result == null) {
+      throw const GaodeException('Input tips returned no result');
+    }
+    final tips = <InputTip>[];
+    for (final entry in result) {
+      if (entry is! Map) {
+        throw GaodeException('Invalid input tip entry: $entry');
+      }
+      tips.add(InputTip.fromMap(entry));
+    }
+    return tips;
   }
 
   /// Forward geocode: resolve a textual [address] into coordinates.
@@ -100,6 +114,9 @@ class SearchClient {
       'search#geocode',
       {'address': address, 'city': city},
     );
-    return GeocodeResult.fromMap(result ?? const {});
+    if (result == null) {
+      throw const GaodeException('Geocode returned no result');
+    }
+    return GeocodeResult.fromMap(result);
   }
 }

@@ -36,6 +36,14 @@ class GaodeMapView extends StatefulWidget {
 }
 
 class _GaodeMapViewState extends State<GaodeMapView> {
+  GaodeMapController? _controller;
+
+  @override
+  void dispose() {
+    _controller?.markDisposed();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final creationParams = widget.options.toMap();
@@ -67,6 +75,8 @@ class _GaodeMapViewState extends State<GaodeMapView> {
   }
 
   void _onPlatformViewCreated(int id) {
-    widget.onMapCreated?.call(GaodeMapController.init(id));
+    final controller = GaodeMapController.init(id);
+    _controller = controller;
+    widget.onMapCreated?.call(controller);
   }
 }

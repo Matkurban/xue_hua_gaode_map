@@ -2,6 +2,44 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.2.0]
+
+### Fixed
+
+- Dart client lifecycle: dispose now blocks in-flight API calls, cancels native
+  `EventChannel` subscriptions, and closes broadcast streams on
+  `LocationClient`, `GeofenceClient`, and `OfflineMapClient`.
+- Android search APIs now enforce Gaode privacy compliance before invoking the
+  Search SDK.
+- Android map events are marshalled onto the main thread before reaching Flutter.
+- iOS plugin engine teardown now releases location, geofence, and offline map
+  native resources (mirrors Android `onDetachedFromEngine`).
+- Android geofence `createFinished` events now include `customId`.
+- Android offline download progress attributes events to tracked city codes
+  instead of always using the first downloading city.
+- iOS map `takeSnapshot` compiles correctly and delivers `FlutterResult` on the
+  main queue.
+- Android location stream no longer emits updates when continuous tracking is
+  inactive (matches iOS).
+- iOS map no longer emits duplicate `cameraMoveStart` events per gesture.
+- iOS map events are marshalled onto the main thread before reaching Flutter.
+- `SearchClient` throws `GaodeException` when the platform returns null instead
+  of empty success payloads.
+- `Geocode`, geofence, and search list parsing throw `GaodeException` for
+  malformed native payloads.
+- `GaodeMapController` throws `StateError` after its `GaodeMapView` is removed.
+- `GaodeMapController` now uses managed event stream teardown on dispose.
+- iOS plugin engine detach clears global `EventChannel` stream handlers.
+- `OfflineMapClient` reference-counts instances so disposing one client no
+  longer destroys the shared native offline map backend.
+- Explicit duplicate `clientId` values on `LocationClient` and `GeofenceClient`
+  now throw `ArgumentError`.
+- Geofence add operations eagerly subscribe to the event stream so
+  `createFinished` events are not dropped.
+- Client `dispose` clears the in-flight guard when native teardown fails so
+  callers can retry.
+- Android offline download `STOP` status now maps to `cancelled` (matches iOS).
+
 ## 1.1.1
 
 ### Fixed

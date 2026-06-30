@@ -3,6 +3,8 @@ package com.kurban.xue_hua_gaode_map.map
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import com.amap.api.maps.AMap
 import com.amap.api.maps.AMap.OnCameraChangeListener
@@ -86,6 +88,7 @@ class GaodeMapPlatformView(
     private var restoreMyLocationStyleAfterLocate = false
     private var cameraMoving = false
     private var disposed = false
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     init {
         if (creationParams["terrainEnabled"] as? Boolean == true) {
@@ -510,7 +513,8 @@ class GaodeMapPlatformView(
     }
 
     private fun emit(type: String, payload: Map<String, Any?> = emptyMap()) {
-        eventSink?.success(mapOf("type" to type) + payload)
+        val event = mapOf("type" to type) + payload
+        mainHandler.post { eventSink?.success(event) }
     }
 
     private fun readCameraPosition(): Map<String, Any?> {

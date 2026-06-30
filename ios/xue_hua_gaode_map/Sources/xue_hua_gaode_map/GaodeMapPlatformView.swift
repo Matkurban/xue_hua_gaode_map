@@ -87,7 +87,9 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
     private func emit(_ type: String, payload: [String: Any] = [:]) {
         var event: [String: Any] = ["type": type]
         payload.forEach { event[$0.key] = $0.value }
-        eventSink?(event)
+        DispatchQueue.main.async { [weak self] in
+            self?.eventSink?(event)
+        }
     }
     
     private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -817,11 +819,13 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
     
     private func takeSnapshot(result: @escaping FlutterResult) {
         mapView.takeSnapshot(in: mapView.bounds, withCompletionBlock: { image, _ in
-            guard let image, let data = image.pngData() else {
-                result(FlutterError(code: "SNAPSHOT_FAILED", message: "snapshot failed", details: nil))
-                return
+            DispatchQueue.main.async {
+                guard let image, let data = image.pngData() else {
+                    result(FlutterError(code: "SNAPSHOT_FAILED", message: "snapshot failed", details: nil))
+                    return
+                }
+                result(FlutterStandardTypedData(bytes: data))
             }
-            result(FlutterStandardTypedData(bytes: data))
         })
     }
     
@@ -841,13 +845,6 @@ final class GaodeMapPlatformView: NSObject, FlutterPlatformView, MAMapViewDelega
             emit("cameraMoveStart")
         }
         emit("cameraMove", payload: ["position": cameraMap()])
-    }
-    
-    func mapView(_ mapView: MAMapView!, regionWillChangeAnimated animated: Bool) {
-        if !cameraMoving {
-            cameraMoving = true
-            emit("cameraMoveStart")
-        }
     }
     
     func mapView(_ mapView: MAMapView!, regionDidChangeAnimated animated: Bool) {

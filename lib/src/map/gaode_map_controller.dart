@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../core/gaode_channel.dart';
 import '../core/gaode_coordinate.dart';
 import '../core/gaode_exception.dart';
+import '../core/gaode_managed_event_stream.dart';
 import 'camera_position.dart';
 import 'gaode_map_callbacks.dart';
 import 'gaode_map_enums.dart';
@@ -38,30 +39,57 @@ class GaodeMapController {
 
   final MethodChannel _channel;
   final int _viewId;
-  Stream<GaodeMapEvent>? _events;
+  bool _isDisposed = false;
+  GaodeManagedEventStream<GaodeMapEvent>? _managedEvents;
+
+  /// Marks this controller invalid after its [GaodeMapView] is removed.
+  void markDisposed() {
+    if (_isDisposed) {
+      return;
+    }
+    _isDisposed = true;
+    final events = _managedEvents;
+    _managedEvents = null;
+    if (events != null) {
+      unawaited(events.close());
+    }
+  }
+
+  void _ensureActive() {
+    if (_isDisposed) {
+      throw StateError('GaodeMapController is no longer valid');
+    }
+  }
+
+  Future<T?> _invoke<T>(
+    String method, [
+    Object? arguments,
+  ]) {
+    _ensureActive();
+    return invokeGaodeMethod<T>(_channel, method, arguments);
+  }
 
   /// Broadcast stream of map interaction events.
   ///
   /// [GaodeMapCameraMoveEvent] is emitted continuously while the camera moves.
   Stream<GaodeMapEvent> get events {
-    _events ??= EventChannel('xue_hua_gaode_map/map_events_$_viewId')
-        .receiveBroadcastStream()
-        .map((event) {
-          if (event is! Map) {
-            throw GaodeException('Invalid map event: $event');
-          }
-          return GaodeMapEvent.fromMap(event);
-        });
-    return _events!;
+    _ensureActive();
+    _managedEvents ??= GaodeManagedEventStream<GaodeMapEvent>(
+      channel: EventChannel('xue_hua_gaode_map/map_events_$_viewId'),
+      transform: (event) {
+        if (event is! Map) {
+          throw GaodeException('Invalid map event: $event');
+        }
+        return GaodeMapEvent.fromMap(event);
+      },
+    );
+    return _managedEvents!.stream;
   }
 
   // region Camera
 
   Future<CameraPosition> getCameraPosition() async {
-    final result = await invokeGaodeMethod<Map<dynamic, dynamic>>(
-      _channel,
-      'map#getCameraPosition',
-    );
+    final result = await _invoke<Map<dynamic, dynamic>>('map#getCameraPosition');
     if (result == null) {
       throw const GaodeException('getCameraPosition returned no result');
     }
@@ -72,7 +100,7 @@ class GaodeMapController {
     CameraPosition position, {
     bool animated = true,
   }) {
-    return invokeGaodeMethod<void>(_channel, 'map#moveCamera', {
+    return _invoke<void>('map#moveCamera', {
       ...position.toMap(),
       'animated': animated,
     });
@@ -82,7 +110,7 @@ class GaodeMapController {
     CameraPosition position, {
     int durationMs = 250,
   }) {
-    return invokeGaodeMethod<void>(_channel, 'map#animateCamera', {
+    return _invoke<void>('map#animateCamera', {
       ...position.toMap(),
       'durationMs': durationMs,
     });
@@ -93,7 +121,7 @@ class GaodeMapController {
     GaodeMapPadding padding = const GaodeMapPadding(),
     bool animated = true,
   }) {
-    return invokeGaodeMethod<void>(_channel, 'map#fitBounds', {
+    return _invoke<void>('map#fitBounds', {
       'bounds': bounds.toMap(),
       'padding': padding.toMap(),
       'animated': animated,
@@ -101,105 +129,102 @@ class GaodeMapController {
   }
 
   Future<void> setMapRegionLimits(LatLngBounds? bounds) {
-    return invokeGaodeMethod<void>(_channel, 'map#setMapRegionLimits', {
+    return _invoke<void>('map#setMapRegionLimits', {
       'bounds': bounds?.toMap(),
     });
   }
 
-  Future<void> zoomIn() => invokeGaodeMethod<void>(_channel, 'map#zoomIn');
+  Future<void> zoomIn() => _invoke<void>('map#zoomIn');
 
-  Future<void> zoomOut() => invokeGaodeMethod<void>(_channel, 'map#zoomOut');
+  Future<void> zoomOut() => _invoke<void>('map#zoomOut');
 
   // endregion
 
   // region Display
 
   Future<void> setMapType(GaodeMapType mapType) {
-    return invokeGaodeMethod<void>(_channel, 'map#setMapType', {
+    return _invoke<void>('map#setMapType', {
       'mapType': mapType.wireValue,
     });
   }
 
   Future<void> setTrafficEnabled(bool enabled) {
-    return invokeGaodeMethod<void>(_channel, 'map#setTrafficEnabled', {
+    return _invoke<void>('map#setTrafficEnabled', {
       'enabled': enabled,
     });
   }
 
   Future<void> setBuildingsEnabled(bool enabled) {
-    return invokeGaodeMethod<void>(_channel, 'map#setBuildingsEnabled', {
+    return _invoke<void>('map#setBuildingsEnabled', {
       'enabled': enabled,
     });
   }
 
   Future<void> setMapTextEnabled(bool enabled) {
-    return invokeGaodeMethod<void>(_channel, 'map#setMapTextEnabled', {
+    return _invoke<void>('map#setMapTextEnabled', {
       'enabled': enabled,
     });
   }
 
   Future<void> setIndoorEnabled(bool enabled) {
-    return invokeGaodeMethod<void>(_channel, 'map#setIndoorEnabled', {
+    return _invoke<void>('map#setIndoorEnabled', {
       'enabled': enabled,
     });
   }
 
   Future<void> setCompassEnabled(bool enabled) {
-    return invokeGaodeMethod<void>(_channel, 'map#setCompassEnabled', {
+    return _invoke<void>('map#setCompassEnabled', {
       'enabled': enabled,
     });
   }
 
   Future<void> setScaleEnabled(bool enabled) {
-    return invokeGaodeMethod<void>(_channel, 'map#setScaleEnabled', {
+    return _invoke<void>('map#setScaleEnabled', {
       'enabled': enabled,
     });
   }
 
   Future<void> setLogoPosition(GaodeMapLogoPosition position) {
-    return invokeGaodeMethod<void>(_channel, 'map#setLogoPosition', {
+    return _invoke<void>('map#setLogoPosition', {
       'position': position.wireValue,
     });
   }
 
   Future<void> setMinMaxZoom({double? minZoom, double? maxZoom}) {
-    return invokeGaodeMethod<void>(_channel, 'map#setMinMaxZoom', {
+    return _invoke<void>('map#setMinMaxZoom', {
       'minZoom': minZoom,
       'maxZoom': maxZoom,
     });
   }
 
   Future<void> setMyLocationEnabled(bool enabled) {
-    return invokeGaodeMethod<void>(_channel, 'map#setMyLocationEnabled', {
+    return _invoke<void>('map#setMyLocationEnabled', {
       'enabled': enabled,
     });
   }
 
   Future<void> setMyLocationIcon(GaodeMapImage? icon) {
-    return invokeGaodeMethod<void>(_channel, 'map#setMyLocationIcon', {
+    return _invoke<void>('map#setMyLocationIcon', {
       'icon': icon?.toMap(),
     });
   }
 
   /// Android only. No-op on iOS.
   Future<void> setMyLocationButtonEnabled(bool enabled) {
-    return invokeGaodeMethod<void>(_channel, 'map#setMyLocationButtonEnabled', {
+    return _invoke<void>('map#setMyLocationButtonEnabled', {
       'enabled': enabled,
     });
   }
 
   Future<void> setMyLocationStyle(GaodeMyLocationStyle style) {
-    return invokeGaodeMethod<void>(_channel, 'map#setMyLocationStyle', {
+    return _invoke<void>('map#setMyLocationStyle', {
       'style': style.toMap(),
     });
   }
 
   /// Returns the last known my-location fix from the map, or null if unavailable.
   Future<GaodeCoordinate?> getMyLocation() async {
-    final result = await invokeGaodeMethod<Map<dynamic, dynamic>>(
-      _channel,
-      'map#getMyLocation',
-    );
+    final result = await _invoke<Map<dynamic, dynamic>>('map#getMyLocation');
     if (result == null) return null;
     return GaodeCoordinate.fromMap(result);
   }
@@ -209,14 +234,14 @@ class GaodeMapController {
   /// When no fix is cached yet, Android triggers one-shot locate mode; iOS
   /// animates to [userLocation] when available.
   Future<void> moveToMyLocation({bool animated = true}) {
-    return invokeGaodeMethod<void>(_channel, 'map#moveToMyLocation', {
+    return _invoke<void>('map#moveToMyLocation', {
       'animated': animated,
     });
   }
 
   /// Android only. No-op on iOS.
   Future<void> setZoomControlsEnabled(bool enabled) {
-    return invokeGaodeMethod<void>(_channel, 'map#setZoomControlsEnabled', {
+    return _invoke<void>('map#setZoomControlsEnabled', {
       'enabled': enabled,
     });
   }
@@ -225,7 +250,7 @@ class GaodeMapController {
   Future<void> setZoomControlsPosition(
     GaodeMapZoomControlsPosition position,
   ) {
-    return invokeGaodeMethod<void>(_channel, 'map#setZoomControlsPosition', {
+    return _invoke<void>('map#setZoomControlsPosition', {
       'position': position.wireValue,
     });
   }
@@ -235,25 +260,25 @@ class GaodeMapController {
   // region Markers
 
   Future<void> addMarker(GaodeMapMarker marker) {
-    return invokeGaodeMethod<void>(_channel, 'map#addMarker', marker.toMap());
+    return _invoke<void>('map#addMarker', marker.toMap());
   }
 
   Future<void> removeMarker(String id) {
-    return invokeGaodeMethod<void>(_channel, 'map#removeMarker', {'id': id});
+    return _invoke<void>('map#removeMarker', {'id': id});
   }
 
   Future<void> clearMarkers() {
-    return invokeGaodeMethod<void>(_channel, 'map#clearMarkers');
+    return _invoke<void>('map#clearMarkers');
   }
 
   Future<void> showInfoWindow(String markerId) {
-    return invokeGaodeMethod<void>(_channel, 'map#showInfoWindow', {
+    return _invoke<void>('map#showInfoWindow', {
       'id': markerId,
     });
   }
 
   Future<void> hideInfoWindow(String markerId) {
-    return invokeGaodeMethod<void>(_channel, 'map#hideInfoWindow', {
+    return _invoke<void>('map#hideInfoWindow', {
       'id': markerId,
     });
   }
@@ -263,121 +288,109 @@ class GaodeMapController {
   // region Overlays
 
   Future<void> addPolyline(GaodeMapPolyline polyline) {
-    return invokeGaodeMethod<void>(_channel, 'map#addPolyline', polyline.toMap());
+    return _invoke<void>('map#addPolyline', polyline.toMap());
   }
 
   Future<void> removePolyline(String id) {
-    return invokeGaodeMethod<void>(_channel, 'map#removePolyline', {'id': id});
+    return _invoke<void>('map#removePolyline', {'id': id});
   }
 
   Future<void> clearPolylines() {
-    return invokeGaodeMethod<void>(_channel, 'map#clearPolylines');
+    return _invoke<void>('map#clearPolylines');
   }
 
   Future<void> addPolygon(GaodeMapPolygon polygon) {
-    return invokeGaodeMethod<void>(_channel, 'map#addPolygon', polygon.toMap());
+    return _invoke<void>('map#addPolygon', polygon.toMap());
   }
 
   Future<void> removePolygon(String id) {
-    return invokeGaodeMethod<void>(_channel, 'map#removePolygon', {'id': id});
+    return _invoke<void>('map#removePolygon', {'id': id});
   }
 
   Future<void> clearPolygons() {
-    return invokeGaodeMethod<void>(_channel, 'map#clearPolygons');
+    return _invoke<void>('map#clearPolygons');
   }
 
   Future<void> addCircle(GaodeMapCircle circle) {
-    return invokeGaodeMethod<void>(_channel, 'map#addCircle', circle.toMap());
+    return _invoke<void>('map#addCircle', circle.toMap());
   }
 
   Future<void> removeCircle(String id) {
-    return invokeGaodeMethod<void>(_channel, 'map#removeCircle', {'id': id});
+    return _invoke<void>('map#removeCircle', {'id': id});
   }
 
   Future<void> clearCircles() {
-    return invokeGaodeMethod<void>(_channel, 'map#clearCircles');
+    return _invoke<void>('map#clearCircles');
   }
 
   Future<void> addArc(GaodeMapArc arc) {
-    return invokeGaodeMethod<void>(_channel, 'map#addArc', arc.toMap());
+    return _invoke<void>('map#addArc', arc.toMap());
   }
 
   Future<void> removeArc(String id) {
-    return invokeGaodeMethod<void>(_channel, 'map#removeArc', {'id': id});
+    return _invoke<void>('map#removeArc', {'id': id});
   }
 
   Future<void> clearArcs() {
-    return invokeGaodeMethod<void>(_channel, 'map#clearArcs');
+    return _invoke<void>('map#clearArcs');
   }
 
   Future<void> addGroundOverlay(GaodeMapGroundOverlay overlay) {
-    return invokeGaodeMethod<void>(
-      _channel,
-      'map#addGroundOverlay',
-      overlay.toMap(),
-    );
+    return _invoke<void>('map#addGroundOverlay', overlay.toMap());
   }
 
   Future<void> removeGroundOverlay(String id) {
-    return invokeGaodeMethod<void>(_channel, 'map#removeGroundOverlay', {
+    return _invoke<void>('map#removeGroundOverlay', {
       'id': id,
     });
   }
 
   Future<void> clearGroundOverlays() {
-    return invokeGaodeMethod<void>(_channel, 'map#clearGroundOverlays');
+    return _invoke<void>('map#clearGroundOverlays');
   }
 
   Future<void> addHeatmap(GaodeMapHeatmap heatmap) {
-    return invokeGaodeMethod<void>(_channel, 'map#addHeatmap', heatmap.toMap());
+    return _invoke<void>('map#addHeatmap', heatmap.toMap());
   }
 
   Future<void> removeHeatmap(String id) {
-    return invokeGaodeMethod<void>(_channel, 'map#removeHeatmap', {'id': id});
+    return _invoke<void>('map#removeHeatmap', {'id': id});
   }
 
   Future<void> clearHeatmaps() {
-    return invokeGaodeMethod<void>(_channel, 'map#clearHeatmaps');
+    return _invoke<void>('map#clearHeatmaps');
   }
 
   Future<void> addMultiPoint(GaodeMapMultiPoint multiPoint) {
-    return invokeGaodeMethod<void>(
-      _channel,
-      'map#addMultiPoint',
-      multiPoint.toMap(),
-    );
+    return _invoke<void>('map#addMultiPoint', multiPoint.toMap());
   }
 
   Future<void> removeMultiPoint(String id) {
-    return invokeGaodeMethod<void>(_channel, 'map#removeMultiPoint', {
+    return _invoke<void>('map#removeMultiPoint', {
       'id': id,
     });
   }
 
   Future<void> clearMultiPoints() {
-    return invokeGaodeMethod<void>(_channel, 'map#clearMultiPoints');
+    return _invoke<void>('map#clearMultiPoints');
   }
 
   Future<void> addTileOverlay(GaodeMapTileOverlay overlay) {
-    return invokeGaodeMethod<void>(
-      _channel,
-      'map#addTileOverlay',
-      overlay.toMap(),
-    );
+    return _invoke<void>('map#addTileOverlay', overlay.toMap());
   }
 
   Future<void> removeTileOverlay(String id) {
-    return invokeGaodeMethod<void>(_channel, 'map#removeTileOverlay', {
+    return _invoke<void>('map#removeTileOverlay', {
       'id': id,
     });
   }
 
   Future<void> clearTileOverlays() {
-    return invokeGaodeMethod<void>(_channel, 'map#clearTileOverlays');
+    return _invoke<void>('map#clearTileOverlays');
   }
 
   Future<void> clearOverlays() {
-    return invokeGaodeMethod<void>(_channel, 'map#clearOverlays');
+    return _invoke<void>('map#clearOverlays');
   }
 
   // endregion
@@ -385,10 +398,7 @@ class GaodeMapController {
   // region Tools
 
   Future<Uint8List> takeSnapshot() async {
-    final result = await invokeGaodeMethod<Uint8List>(
-      _channel,
-      'map#takeSnapshot',
-    );
+    final result = await _invoke<Uint8List>('map#takeSnapshot');
     if (result == null) {
       throw const GaodeException('takeSnapshot returned no result');
     }
@@ -396,8 +406,7 @@ class GaodeMapController {
   }
 
   Future<GaodeMapPoint> toScreenLocation(GaodeCoordinate coordinate) async {
-    final result = await invokeGaodeMethod<Map<dynamic, dynamic>>(
-      _channel,
+    final result = await _invoke<Map<dynamic, dynamic>>(
       'map#toScreenLocation',
       coordinate.toMap(),
     );
@@ -408,8 +417,7 @@ class GaodeMapController {
   }
 
   Future<GaodeCoordinate> fromScreenLocation(GaodeMapPoint point) async {
-    final result = await invokeGaodeMethod<Map<dynamic, dynamic>>(
-      _channel,
+    final result = await _invoke<Map<dynamic, dynamic>>(
       'map#fromScreenLocation',
       point.toMap(),
     );

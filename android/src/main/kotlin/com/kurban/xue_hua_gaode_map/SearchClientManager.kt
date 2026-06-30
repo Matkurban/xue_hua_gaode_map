@@ -33,6 +33,7 @@ class SearchClientManager {
         pageSize: Int,
         result: Result,
     ) {
+        AmapPrivacyState.requirePrivacyAgreed()
         val query = PoiSearchV2.Query(keyword, type, city)
         query.pageSize = pageSize.coerceIn(1, 25)
         query.pageNum = page.coerceAtLeast(1)
@@ -51,6 +52,7 @@ class SearchClientManager {
         pageSize: Int,
         result: Result,
     ) {
+        AmapPrivacyState.requirePrivacyAgreed()
         val query = PoiSearchV2.Query(keyword, type, "")
         query.pageSize = pageSize.coerceIn(1, 25)
         query.pageNum = page.coerceAtLeast(1)
@@ -107,6 +109,7 @@ class SearchClientManager {
     }
 
     fun inputTips(context: Context, keyword: String, city: String, result: Result) {
+        AmapPrivacyState.requirePrivacyAgreed()
         val query = InputtipsQuery(keyword, city)
         val inputTips = Inputtips(context, query)
         inFlight.add(inputTips)
@@ -125,6 +128,7 @@ class SearchClientManager {
     }
 
     fun geocode(context: Context, address: String, city: String, result: Result) {
+        AmapPrivacyState.requirePrivacyAgreed()
         val search: GeocodeSearch
         try {
             search = GeocodeSearch(context)

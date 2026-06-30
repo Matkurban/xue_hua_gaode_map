@@ -301,6 +301,5 @@ final class LocationClientRegistry {
         clients.removeAll()
         lock.unlock()
         allClients.forEach { $0.destroy() }
-        AmapPrivacyState.setPrivacyAgreed(false)
     }
 }

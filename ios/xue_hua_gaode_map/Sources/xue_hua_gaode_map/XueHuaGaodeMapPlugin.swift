@@ -2,42 +2,70 @@ import Flutter
 import UIKit
 
 public class XueHuaGaodeMapPlugin: NSObject, FlutterPlugin {
+    private static weak var activeInstance: XueHuaGaodeMapPlugin?
+
     private let searchClientManager = SearchClientManager()
     private let offlineMapHandler = OfflineMapHandler()
-    
+    private var isDetachedFromEngine = false
+    private var locationEventChannel: FlutterEventChannel?
+    private var geofenceEventChannel: FlutterEventChannel?
+    private var offlineMapEventChannel: FlutterEventChannel?
+
     public static func register(with registrar: FlutterPluginRegistrar) {
+        activeInstance?.detachFromEngine()
         AmapCoreHandler.applyApiKeyFromBundleIfAvailable()
         let instance = XueHuaGaodeMapPlugin()
+        activeInstance = instance
         let channel = FlutterMethodChannel(name: "xue_hua_gaode_map", binaryMessenger: registrar.messenger())
         registrar.addMethodCallDelegate(instance, channel: channel)
-        
+
         let locationEvents = FlutterEventChannel(
             name: "xue_hua_gaode_map/location",
             binaryMessenger: registrar.messenger()
         )
+        instance.locationEventChannel = locationEvents
         locationEvents.setStreamHandler(LocationStreamHandler())
-        
+
         let geofenceEvents = FlutterEventChannel(
             name: "xue_hua_gaode_map/geofence",
             binaryMessenger: registrar.messenger()
         )
+        instance.geofenceEventChannel = geofenceEvents
         geofenceEvents.setStreamHandler(GeofenceStreamHandler())
-        
+
         let offlineMapEvents = FlutterEventChannel(
             name: "xue_hua_gaode_map/offline_map",
             binaryMessenger: registrar.messenger()
         )
+        instance.offlineMapEventChannel = offlineMapEvents
         offlineMapEvents.setStreamHandler(OfflineMapStreamHandler(handler: instance.offlineMapHandler))
-        
+
         let mapFactory = GaodeMapViewFactory(messenger: registrar.messenger())
         registrar.register(mapFactory, withId: "xue_hua_gaode_map/map")
     }
-    
-    public func detach(from registrar: FlutterPluginRegistrar) {
+
+    deinit {
+        detachFromEngine()
+    }
+
+    private func detachFromEngine() {
+        guard !isDetachedFromEngine else { return }
+        isDetachedFromEngine = true
+        if Self.activeInstance === self {
+            Self.activeInstance = nil
+        }
+        locationEventChannel?.setStreamHandler(nil)
+        geofenceEventChannel?.setStreamHandler(nil)
+        offlineMapEventChannel?.setStreamHandler(nil)
+        locationEventChannel = nil
+        geofenceEventChannel = nil
+        offlineMapEventChannel = nil
         LocationClientRegistry.shared.destroyAll()
         GeofenceClientRegistry.shared.destroyAll()
+        offlineMapHandler.destroy()
+        AmapPrivacyState.setPrivacyAgreed(false)
     }
-    
+
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
         case "updatePrivacyShow":

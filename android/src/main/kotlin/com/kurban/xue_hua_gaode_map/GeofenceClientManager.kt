@@ -27,12 +27,14 @@ class GeofenceClientManager(
 
     private val geoFenceListener =
         GeoFenceListener { geoFenceList, errorCode, _ ->
+            val customId = geoFenceList.firstOrNull()?.customId
             val event =
                 mapOf(
                     "type" to "createFinished",
                     "errorCode" to errorCode,
                     "success" to (errorCode == GeoFence.ADDGEOFENCE_SUCCESS),
                     "count" to geoFenceList.size,
+                    "customId" to customId,
                 )
             mainHandler.post { eventSink?.success(event) }
         }

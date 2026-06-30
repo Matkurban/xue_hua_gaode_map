@@ -1,4 +1,5 @@
 import '../core/gaode_coordinate.dart';
+import '../core/gaode_exception.dart';
 
 /// A single geocoded location (address -> coordinate).
 class Geocode {
@@ -21,11 +22,18 @@ class Geocode {
   final String? level;
 
   factory Geocode.fromMap(Map<dynamic, dynamic> map) {
+    final latitude = map['latitude'];
+    final longitude = map['longitude'];
+    if (latitude is! num || longitude is! num) {
+      throw GaodeException(
+        'Geocode missing coordinates: latitude=$latitude, longitude=$longitude',
+      );
+    }
     return Geocode(
       formattedAddress: (map['formattedAddress'] as String?) ?? '',
       location: GaodeCoordinate(
-        latitude: (map['latitude'] as num).toDouble(),
-        longitude: (map['longitude'] as num).toDouble(),
+        latitude: latitude.toDouble(),
+        longitude: longitude.toDouble(),
       ),
       province: map['province'] as String?,
       city: map['city'] as String?,
@@ -47,10 +55,13 @@ class GeocodeResult {
 
   factory GeocodeResult.fromMap(Map<dynamic, dynamic> map) {
     final raw = (map['geocodes'] as List<dynamic>?) ?? const [];
-    return GeocodeResult(
-      geocodes: raw
-          .map((e) => Geocode.fromMap(e as Map<dynamic, dynamic>))
-          .toList(growable: false),
-    );
+    final geocodes = <Geocode>[];
+    for (final entry in raw) {
+      if (entry is! Map) {
+        throw GaodeException('Invalid geocode entry: $entry');
+      }
+      geocodes.add(Geocode.fromMap(entry));
+    }
+    return GeocodeResult(geocodes: geocodes);
   }
 }

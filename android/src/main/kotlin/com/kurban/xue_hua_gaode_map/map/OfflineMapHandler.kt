@@ -11,10 +11,13 @@ import com.amap.api.maps.offlinemap.OfflineMapStatus
 import com.kurban.xue_hua_gaode_map.AmapPrivacyState
 import io.flutter.plugin.common.EventChannel
 
+import java.util.Collections
+
 class OfflineMapHandler(private val context: Context) {
     private var manager: OfflineMapManager? = null
     private var eventSink: EventChannel.EventSink? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val trackedCityCodes = Collections.synchronizedSet(mutableSetOf<String>())
 
     fun setEventSink(sink: EventChannel.EventSink?) {
         eventSink = sink
@@ -29,7 +32,12 @@ class OfflineMapHandler(private val context: Context) {
         if (manager == null) {
             manager = OfflineMapManager(context, object : OfflineMapManager.OfflineMapDownloadListener {
                 override fun onDownload(status: Int, completeCode: Int, msg: String?) {
-                    val city = manager?.downloadingCityList?.firstOrNull()
+                    val city = resolveProgressCity(msg)
+                    city?.code?.let { code ->
+                        if (status == OfflineMapStatus.SUCCESS || status == OfflineMapStatus.ERROR) {
+                            trackedCityCodes.remove(code)
+                        }
+                    }
                     val payload = mapOf(
                         "cityCode" to (city?.code ?: ""),
                         "cityName" to (city?.city ?: ""),
@@ -64,10 +72,14 @@ class OfflineMapHandler(private val context: Context) {
     fun downloadByCityCode(cityCode: String) {
         val city = findCity(cityCode)
             ?: throw IllegalArgumentException("city not found: $cityCode")
+        trackedCityCodes.add(city.code)
         ensureManager().downloadByCityCode(city.code)
     }
 
     fun downloadByCityName(cityName: String) {
+        val city = findCityByName(cityName)
+            ?: throw IllegalArgumentException("city not found: $cityName")
+        trackedCityCodes.add(city.code)
         ensureManager().downloadByCityName(cityName)
     }
 
@@ -96,6 +108,29 @@ class OfflineMapHandler(private val context: Context) {
         manager?.destroy()
         manager = null
         eventSink = null
+        trackedCityCodes.clear()
+    }
+
+    private fun resolveProgressCity(msg: String?): OfflineMapCity? {
+        val downloading = manager?.downloadingCityList ?: return null
+        if (msg != null) {
+            downloading.firstOrNull { it.city == msg || it.code == msg }?.let { return it }
+        }
+        synchronized(trackedCityCodes) {
+            downloading.firstOrNull { it.code in trackedCityCodes }?.let { return it }
+        }
+        return downloading.firstOrNull()
+    }
+
+    private fun findCityByName(cityName: String): OfflineMapCity? {
+        val offlineManager = ensureManager()
+        offlineManager.offlineMapCityList?.firstOrNull { it.city == cityName }?.let { return it }
+        offlineManager.offlineMapProvinceList?.forEach { province ->
+            province.cityList?.forEach { city ->
+                if (city.city == cityName) return city
+            }
+        }
+        return null
     }
 
     private fun findCity(cityCode: String): OfflineMapCity? {
@@ -144,8 +179,13 @@ class OfflineMapHandler(private val context: Context) {
         return when (status) {
             OfflineMapStatus.LOADING, OfflineMapStatus.UNZIP -> "downloading"
             OfflineMapStatus.SUCCESS -> "finished"
-            OfflineMapStatus.PAUSE, OfflineMapStatus.STOP -> "paused"
-            OfflineMapStatus.ERROR -> "error"
+            OfflineMapStatus.PAUSE -> "paused"
+            OfflineMapStatus.STOP -> "cancelled"
+            OfflineMapStatus.ERROR,
+            OfflineMapStatus.EXCEPTION_AMAP,
+            OfflineMapStatus.EXCEPTION_NETWORK_LOADING,
+            OfflineMapStatus.EXCEPTION_SDCARD,
+            OfflineMapStatus.START_DOWNLOAD_FAILED -> "error"
             OfflineMapStatus.WAITING -> "waiting"
             else -> "unknown"
         }

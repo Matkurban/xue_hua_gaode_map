@@ -1,4 +1,5 @@
 import 'geofence_action.dart';
+import '../core/gaode_exception.dart';
 
 /// Geofence event emitted on [GeofenceClient.geofenceStream].
 class GeofenceEvent {
@@ -32,16 +33,20 @@ class GeofenceEvent {
   bool get isCreateFinished => type == 'createFinished';
 
   factory GeofenceEvent.fromMap(Map<dynamic, dynamic> map) {
-    return GeofenceEvent(
-      type: map['type'] as String? ?? 'unknown',
-      status: map['status'] != null
-          ? geofenceTriggerStatusFromCode((map['status'] as num).toInt())
-          : null,
-      customId: map['customId'] as String?,
-      fenceId: map['fenceId'] as String?,
-      success: map['success'] as bool?,
-      errorCode: (map['errorCode'] as num?)?.toInt(),
-      count: (map['count'] as num?)?.toInt(),
-    );
+    try {
+      return GeofenceEvent(
+        type: map['type'] as String? ?? 'unknown',
+        status: map['status'] != null
+            ? geofenceTriggerStatusFromCode((map['status'] as num).toInt())
+            : null,
+        customId: map['customId'] as String?,
+        fenceId: map['fenceId'] as String?,
+        success: map['success'] as bool?,
+        errorCode: (map['errorCode'] as num?)?.toInt(),
+        count: (map['count'] as num?)?.toInt(),
+      );
+    } catch (error) {
+      throw GaodeException('Invalid geofence event: $map ($error)');
+    }
   }
 }

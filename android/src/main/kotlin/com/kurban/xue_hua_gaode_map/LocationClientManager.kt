@@ -47,6 +47,9 @@ class LocationClientManager(
                         return@post
                     }
                 }
+                if (!isContinuous) {
+                    return@post
+                }
                 eventSink?.success(map)
             }
         }

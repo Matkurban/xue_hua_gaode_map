@@ -4,21 +4,32 @@ import 'package:flutter/services.dart';
 
 import '../core/gaode_channel.dart';
 import '../core/gaode_exception.dart';
+import '../core/gaode_managed_event_stream.dart';
 import 'offline_map_city.dart';
 
 /// Manages offline map city packages.
 ///
 /// Privacy compliance must be configured before calling any method.
+///
+/// The native offline map backend is process-wide. Multiple instances share
+/// [progressStream]; the native backend is destroyed only after the last
+/// instance calls [dispose].
 class OfflineMapClient {
-  OfflineMapClient();
+  OfflineMapClient() {
+    _refCount++;
+  }
 
   static const MethodChannel _channel = MethodChannel('xue_hua_gaode_map');
   static const EventChannel _eventChannel = EventChannel(
     'xue_hua_gaode_map/offline_map',
   );
 
-  Stream<OfflineMapProgressEvent>? _progressStream;
+  static int _refCount = 0;
+  static GaodeManagedEventStream<OfflineMapProgressEvent>? _sharedProgressEvents;
+
   bool _disposed = false;
+  bool _disposing = false;
+  Future<void>? _disposeFuture;
 
   /// Optional storage directory for offline map data (Android).
   ///
@@ -37,9 +48,17 @@ class OfflineMapClient {
       _channel,
       'offlineMap#getCityList',
     );
-    return (result ?? const [])
-        .map((e) => OfflineMapCity.fromMap(e as Map<dynamic, dynamic>))
-        .toList(growable: false);
+    if (result == null) {
+      throw const GaodeException('getCityList returned no result');
+    }
+    final cities = <OfflineMapCity>[];
+    for (final entry in result) {
+      if (entry is! Map) {
+        throw GaodeException('Invalid offline map city entry: $entry');
+      }
+      cities.add(OfflineMapCity.fromMap(entry));
+    }
+    return cities;
   }
 
   /// Downloads the offline package for [cityCode].
@@ -92,24 +111,42 @@ class OfflineMapClient {
 
   Stream<OfflineMapProgressEvent> get progressStream {
     _ensureNotDisposed();
-    _progressStream ??= _eventChannel.receiveBroadcastStream().map((event) {
-      if (event is! Map) {
-        throw GaodeException('Invalid offline map event: $event');
-      }
-      return OfflineMapProgressEvent.fromMap(event);
-    });
-    return _progressStream!;
+    _sharedProgressEvents ??= GaodeManagedEventStream<OfflineMapProgressEvent>(
+      channel: _eventChannel,
+      transform: (event) {
+        if (event is! Map) {
+          throw GaodeException('Invalid offline map event: $event');
+        }
+        return OfflineMapProgressEvent.fromMap(event);
+      },
+    );
+    return _sharedProgressEvents!.stream;
   }
 
-  Future<void> dispose() async {
+  Future<void> dispose() {
+    _disposeFuture ??= _disposeImpl();
+    return _disposeFuture!;
+  }
+
+  Future<void> _disposeImpl() async {
     if (_disposed) return;
-    _disposed = true;
-    _progressStream = null;
-    await invokeGaodeMethod<void>(_channel, 'offlineMap#destroy');
+    _disposing = true;
+    try {
+      _disposed = true;
+      _refCount--;
+      if (_refCount <= 0) {
+        _refCount = 0;
+        await _sharedProgressEvents?.close();
+        _sharedProgressEvents = null;
+        await invokeGaodeMethod<void>(_channel, 'offlineMap#destroy');
+      }
+    } finally {
+      _disposing = false;
+    }
   }
 
   void _ensureNotDisposed() {
-    if (_disposed) {
+    if (_disposing || _disposed) {
       throw StateError('OfflineMapClient has been disposed');
     }
   }
