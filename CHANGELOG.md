@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.2.1]
+
+### Changed
+
+- Android `consumer-rules.pro`: broaden Gaode SDK ProGuard/R8 keep rules to cover
+  `com.amap.api.**`, `com.autonavi.**`, `com.amap.location.**`, and
+  `com.autonavi.base.amap.mapcore.NativeBase`, with matching `-dontwarn` entries
+  for release builds.
+
+### Docs
+
+- README / README_zh-CN: document `consumer-rules.pro` auto-merge via
+  `consumerProguardFiles`, and include a copy-paste ProGuard block for host apps
+  that need to apply the rules manually.
+
 ## [1.2.0]
 
 ### Fixed

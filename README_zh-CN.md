@@ -89,7 +89,31 @@ flutter pub get
 2. **权限** —— 插件的 Manifest 已将基础定位权限
    （`ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION`）合并到你的 App。
 
-3. **ProGuard / R8** —— 插件已内置高德 keep 规则，Release 构建通常无需额外配置。
+3. **ProGuard / R8** —— 插件内置 [`android/consumer-rules.pro`](android/consumer-rules.pro)，
+   并通过 `consumerProguardFiles` 注册。宿主 App 依赖本插件后，AGP 会在 Release 构建时
+   **自动合并**这些规则。若未通过本插件引入高德 SDK，或 R8 仍报错，可将以下内容粘贴到宿主
+   `android/app/proguard-rules.pro`：
+
+```proguard
+# ---------------- 高德 SDK 混淆配置 开始 ----------------
+
+# 声明不提示高德 SDK 的警告（防止编译不过）
+-dontwarn com.amap.api.**
+-dontwarn com.autonavi.**
+-dontwarn com.amap.location.**
+
+# 保持高德核心包下的所有类和方法不被混淆
+-keep class com.amap.api.** {*;}
+-keep class com.autonavi.** {*;}
+
+# 针对定位支持库/日志库进行强制保持
+-keep class com.amap.location.** {*;}
+
+# 3D 地图 native 方法映射类
+-keep class com.autonavi.base.amap.mapcore.NativeBase {*;}
+
+# ---------------- 高德 SDK 混淆配置 结束 ----------------
+```
 
 ### iOS 配置
 

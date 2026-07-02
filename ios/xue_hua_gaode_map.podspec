@@ -13,7 +13,7 @@ tips, geocoding), with a consistent Dart API across Android and iOS.
                        DESC
   s.homepage         = 'https://github.com/kurban/xue_hua_gaode_map'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'kurban' => 'kurban@users.noreply.github.com' }
+  s.author           = { 'kurban' => '3496354336@qq.com' }
   s.source           = { :path => '.' }
   s.source_files = 'xue_hua_gaode_map/Sources/xue_hua_gaode_map/**/*'
   s.dependency 'Flutter'

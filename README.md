@@ -92,8 +92,32 @@ You can also set it at runtime with `GaodeSdk.setApiKey('YOUR_AMAP_KEY')`.
 2. **Permissions** — the plugin's manifest already merges the base location permissions
    (`ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION`) into your app.
 
-3. **ProGuard / R8** — the plugin ships Gaode keep-rules; no extra configuration is
-   normally required for release builds.
+3. **ProGuard / R8** — the plugin ships [`android/consumer-rules.pro`](android/consumer-rules.pro)
+   and registers it via `consumerProguardFiles`. When your app depends on this plugin, AGP
+   **automatically merges** these rules into release builds. If you are not using this plugin
+   as a dependency, or R8 still fails, paste the following into your app's
+   `android/app/proguard-rules.pro`:
+
+```proguard
+# ---------------- Gaode SDK ProGuard rules (start) ----------------
+
+# Suppress missing-class warnings from the Gaode SDK
+-dontwarn com.amap.api.**
+-dontwarn com.autonavi.**
+-dontwarn com.amap.location.**
+
+# Keep map, search, and location SDK classes
+-keep class com.amap.api.** {*;}
+-keep class com.autonavi.** {*;}
+
+# Keep location support / logging libraries
+-keep class com.amap.location.** {*;}
+
+# Keep native JNI bridge classes for the 3D map
+-keep class com.autonavi.base.amap.mapcore.NativeBase {*;}
+
+# ---------------- Gaode SDK ProGuard rules (end) ----------------
+```
 
 ### iOS setup
 
